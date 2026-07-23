@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#121212" />
+  <title>Project Evercade</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">Version 0.1</p>
+      <h1>Project Evercade</h1>
+      <p class="subtitle">Sammlung & Deal-Finder</p>
+    </div>
+    <button id="resetButton" class="icon-button" title="Lokale Daten zurücksetzen">↺</button>
+  </header>
+
+  <main>
+    <section class="stats-grid" aria-label="Sammlungsübersicht">
+      <article class="stat-card">
+        <span class="stat-label">Gesamt</span>
+        <strong id="totalOwned">0</strong>
+      </article>
+      <article class="stat-card console">
+        <span class="stat-label">Console</span>
+        <strong id="consoleOwned">0</strong>
+      </article>
+      <article class="stat-card arcade">
+        <span class="stat-label">Arcade</span>
+        <strong id="arcadeOwned">0</strong>
+      </article>
+      <article class="stat-card computer">
+        <span class="stat-label">Computer</span>
+        <strong id="computerOwned">0</strong>
+      </article>
+    </section>
+
+    <section class="panel deal-panel">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Deal der Woche</p>
+          <h2>Noch kein Deal geladen</h2>
+        </div>
+        <span class="badge">Phase 2</span>
+      </div>
+      <p>Die automatische Angebotssuche kommt in Version 0.2. In Version 0.1 verwaltest du zunächst deine Sammlung direkt auf dem Handy.</p>
+    </section>
+
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Meine Sammlung</p>
+          <h2>Cartridges</h2>
+        </div>
+        <button id="openAddDialog" class="primary-button">+ Hinzufügen</button>
+      </div>
+
+      <div class="filters">
+        <button class="filter active" data-filter="all">Alle</button>
+        <button class="filter" data-filter="console">🔴 Console</button>
+        <button class="filter" data-filter="arcade">🟣 Arcade</button>
+        <button class="filter" data-filter="computer">🔵 Computer</button>
+      </div>
+
+      <div id="collectionList" class="collection-list"></div>
+    </section>
+  </main>
+
+  <dialog id="addDialog">
+    <form id="addForm" method="dialog">
+      <div class="dialog-header">
+        <h2>Cartridge hinzufügen</h2>
+        <button type="button" id="closeDialog" class="icon-button">✕</button>
+      </div>
+
+      <label>
+        Serie
+        <select id="series" required>
+          <option value="console">🔴 Console</option>
+          <option value="arcade">🟣 Arcade</option>
+          <option value="computer">🔵 Home Computer</option>
+        </select>
+      </label>
+
+      <label>
+        Nummer
+        <input id="number" type="number" min="1" max="99" required />
+      </label>
+
+      <label>
+        Titel
+        <input id="title" type="text" required placeholder="z. B. Data East Collection 1" />
+      </label>
+
+      <label>
+        Zustand
+        <select id="condition">
+          <option value="Geöffnet">Geöffnet</option>
+          <option value="Neu/OVP">Neu/OVP</option>
+          <option value="Gebraucht">Gebraucht</option>
+        </select>
+      </label>
+
+      <label>
+        Kaufpreis in € (optional)
+        <input id="price" type="number" min="0" step="0.01" />
+      </label>
+
+      <button class="primary-button full-width" type="submit">Speichern</button>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
