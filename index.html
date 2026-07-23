@@ -13,7 +13,7 @@
 <body>
   <header class="app-header">
     <div>
-      <p class="eyebrow">Version 0.2</p>
+      <p class="eyebrow">Version 0.3</p>
       <h1>Project Evercade</h1>
       <p class="subtitle">Sammlung, Wunschliste & Deals</p>
     </div>
@@ -113,12 +113,20 @@
     <section id="dealsView" class="view panel" hidden>
       <div class="section-heading">
         <div>
-          <p class="eyebrow">Angebote vergleichen</p>
+          <p class="eyebrow">Angebote suchen & vergleichen</p>
           <h2>Deal-Finder</h2>
         </div>
         <button id="openDealDialog" class="primary-button">+ Deal</button>
       </div>
-      <p class="muted compact">Gesamtpreis, Zustand, Quelle und direkter Angebotslink werden gemeinsam gespeichert.</p>
+      <div class="deal-search-box">
+        <label>
+          Cartridge für die Suche
+          <select id="searchCatalogItem"></select>
+        </label>
+        <button id="searchDealsButton" class="primary-button full-width" type="button">🔎 Deals suchen</button>
+        <p class="muted compact">Öffnet direkte Suchen bei eBay, Kleinanzeigen, Idealo, Google Shopping und weiteren Shops.</p>
+      </div>
+      <div id="priceHistory" class="price-history"></div>
       <div id="dealList" class="card-list"></div>
     </section>
   </main>
@@ -182,6 +190,7 @@
         <select id="dealSource">
           <option value="eBay">eBay</option>
           <option value="Kleinanzeigen">Kleinanzeigen</option>
+          <option value="Idealo">Idealo</option>
           <option value="Online-Shop">Online-Shop</option>
           <option value="Privat">Privat</option>
           <option value="Sonstige">Sonstige</option>
@@ -191,8 +200,42 @@
         Direkter Angebotslink
         <input id="dealUrl" type="url" inputmode="url" placeholder="https://…" required />
       </label>
+      <div class="two-columns">
+        <label>
+          Cartridge-Farbe
+          <select id="dealColor">
+            <option value="Automatisch">Automatisch</option>
+            <option value="Rot">Rot</option>
+            <option value="Violett">Violett</option>
+            <option value="Blau">Blau</option>
+          </select>
+        </label>
+        <label>
+          Anbieter
+          <select id="dealSellerType">
+            <option value="Händler">Händler</option>
+            <option value="Privat">Privat</option>
+            <option value="Unbekannt">Unbekannt</option>
+          </select>
+        </label>
+      </div>
       <button class="primary-button full-width" type="submit">Deal speichern</button>
     </form>
+  </dialog>
+
+  <dialog id="searchDialog">
+    <div class="dialog-body">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">Deal-Suche</p>
+          <h2 id="searchDialogTitle">Angebote finden</h2>
+        </div>
+        <button type="button" class="icon-button close-dialog" aria-label="Schließen">✕</button>
+      </div>
+      <p class="muted compact">Öffne die Quellen nacheinander. Wenn du ein gutes Angebot findest, kopiere den direkten Link und speichere ihn anschließend als Deal.</p>
+      <div id="marketSearchLinks" class="search-source-list"></div>
+      <button id="saveSearchResult" class="primary-button full-width" type="button">Gefundenen Deal speichern</button>
+    </div>
   </dialog>
 
   <dialog id="dataDialog">

@@ -1,4 +1,5 @@
-const STORAGE_KEY = "project-evercade-v02";
+const STORAGE_KEY = "project-evercade-v03";
+const V02_STORAGE_KEY = "project-evercade-v02";
 const LEGACY_STORAGE_KEY = "project-evercade-v01";
 
 const catalog = [
@@ -92,14 +93,25 @@ function loadState() {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (saved && Array.isArray(saved.owned)) return normalizeState(saved);
   } catch (error) {
-    console.warn("Version-0.2-Daten konnten nicht gelesen werden.", error);
+    console.warn("Version-0.3-Daten konnten nicht gelesen werden.", error);
+  }
+
+  try {
+    const previous = JSON.parse(localStorage.getItem(V02_STORAGE_KEY));
+    if (previous && Array.isArray(previous.owned)) {
+      const migrated = normalizeState(previous);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+      return migrated;
+    }
+  } catch (error) {
+    console.warn("Version-0.2-Daten konnten nicht migriert werden.", error);
   }
 
   try {
     const legacy = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY));
     if (Array.isArray(legacy)) {
       const migrated = {
-        version: 2,
+        version: 3,
         owned: legacy.map(item => ({
           key: `${item.series}-${Number(item.number)}`,
           condition: item.condition || "Geöffnet",
@@ -115,12 +127,12 @@ function loadState() {
     console.warn("Version-0.1-Daten konnten nicht migriert werden.", error);
   }
 
-  return { version: 2, owned: structuredClone(defaultOwned), wishlist: [], deals: [] };
+  return { version: 3, owned: structuredClone(defaultOwned), wishlist: [], deals: [] };
 }
 
 function normalizeState(data) {
   return {
-    version: 2,
+    version: 3,
     owned: data.owned
       .filter(item => item && catalogByKey.has(item.key))
       .map(item => ({
@@ -139,7 +151,11 @@ function normalizeState(data) {
         condition: deal.condition || "Gebraucht",
         source: deal.source || "Sonstige",
         url: safeUrl(deal.url),
-        capturedAt: deal.capturedAt || new Date().toISOString()
+        color: deal.color || "Automatisch",
+        sellerType: deal.sellerType || "Unbekannt",
+        status: ["active", "checked", "expired"].includes(deal.status) ? deal.status : "active",
+        capturedAt: deal.capturedAt || new Date().toISOString(),
+        checkedAt: deal.checkedAt || null
       }))
       .filter(deal => deal.url)
   };
@@ -173,6 +189,11 @@ function money(value) {
   return `${Number(value).toFixed(2).replace(".", ",")} €`;
 }
 
+function dateLabel(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "unbekannt" : new Intl.DateTimeFormat("de-DE").format(date);
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -189,6 +210,42 @@ function safeUrl(value) {
   } catch {
     return "";
   }
+}
+
+function sourceFromUrl(value) {
+  const url = safeUrl(value);
+  if (!url) return "Sonstige";
+  const host = new URL(url).hostname.toLowerCase();
+  if (host.includes("ebay.")) return "eBay";
+  if (host.includes("kleinanzeigen.")) return "Kleinanzeigen";
+  if (host.includes("idealo.")) return "Idealo";
+  if (host.includes("amazon.")) return "Online-Shop";
+  return "Online-Shop";
+}
+
+function colorFor(item, selected = "Automatisch") {
+  if (selected !== "Automatisch") return selected;
+  return { console: "Rot", arcade: "Violett", computer: "Blau" }[item.series];
+}
+
+function dealScore(deal, activeDeals) {
+  const total = deal.price + deal.shipping;
+  const comparable = activeDeals.filter(item => item.key === deal.key);
+  const cheapest = Math.min(...comparable.map(item => item.price + item.shipping), total);
+  let score = 55;
+  if (total === cheapest) score += 25;
+  if (deal.condition === "Neu/OVP") score += 6;
+  if (deal.sellerType === "Händler") score += 7;
+  if (["eBay", "Idealo", "Online-Shop"].includes(deal.source)) score += 4;
+  if (deal.status !== "active") score -= 20;
+  return Math.max(0, Math.min(100, score));
+}
+
+function scoreLabel(score) {
+  if (score >= 85) return "Top-Deal";
+  if (score >= 70) return "Guter Deal";
+  if (score >= 55) return "Prüfen";
+  return "Schwach";
 }
 
 function isOwned(key) {
@@ -217,6 +274,7 @@ function render() {
   renderCatalog();
   renderWishlist();
   renderDeals();
+  renderPriceHistory();
   fillSelects();
 }
 
@@ -230,11 +288,11 @@ function renderStats() {
 function renderBestDeal() {
   const title = document.querySelector("#bestDealTitle");
   const content = document.querySelector("#bestDealContent");
-  const validDeals = state.deals.filter(deal => safeUrl(deal.url));
+  const validDeals = state.deals.filter(deal => deal.status === "active" && safeUrl(deal.url));
 
   if (!validDeals.length) {
     title.textContent = "Noch kein Angebot erfasst";
-    content.innerHTML = '<p class="muted">Speichere gefundene Angebote unter „Deals“. Das günstigste verfügbare Angebot erscheint automatisch hier.</p>';
+    content.innerHTML = '<p class="muted">Starte unter „Deals“ eine Suche. Das günstigste aktive Angebot erscheint automatisch hier.</p>';
     return;
   }
 
@@ -322,13 +380,14 @@ function renderWishlist() {
   }
 
   list.innerHTML = items.map(item => {
-    const search = encodeURIComponent(`Evercade ${item.title}`);
+    const search = encodeURIComponent(`Evercade "${item.title}"`);
+    const kleinanzeigenSearch = encodeURIComponent(`Evercade ${item.title}`).replaceAll("%20", "-");
     return `
       <article class="cartridge">
         ${itemHeader(item)}
         <div class="market-links">
           <a href="https://www.ebay.de/sch/i.html?_nkw=${search}" target="_blank" rel="noopener">eBay</a>
-          <a href="https://www.kleinanzeigen.de/s-${search.replaceAll("%20", "-")}/k0" target="_blank" rel="noopener">Kleinanzeigen</a>
+          <a href="https://www.kleinanzeigen.de/s-${kleinanzeigenSearch}/k0" target="_blank" rel="noopener">Kleinanzeigen</a>
           <a href="https://www.google.com/search?q=${search}" target="_blank" rel="noopener">Google</a>
         </div>
         <div class="card-actions">
@@ -354,21 +413,49 @@ function renderDeals() {
 
   list.innerHTML = deals.map(deal => {
     const item = catalogByKey.get(deal.key);
+    const score = dealScore(deal, state.deals.filter(entry => entry.status === "active"));
+    const statusText = {
+      active: "Aktiv",
+      checked: `Geprüft${deal.checkedAt ? ` am ${dateLabel(deal.checkedAt)}` : ""}`,
+      expired: "Abgelaufen"
+    }[deal.status];
     return `
-      <article class="cartridge deal-card">
+      <article class="cartridge deal-card is-${deal.status}">
         ${itemHeader(item)}
         <div class="deal-detail">
           <strong>${money(deal.price + deal.shipping)}</strong>
-          <span>${escapeHtml(deal.source)} · ${escapeHtml(deal.condition)}</span>
-          <small>${money(deal.price)} + ${money(deal.shipping)} Versand</small>
+          <span>${escapeHtml(deal.source)} · ${escapeHtml(deal.condition)} · ${escapeHtml(colorFor(item, deal.color))}</span>
+          <small>${money(deal.price)} + ${money(deal.shipping)} Versand · ${escapeHtml(deal.sellerType)} · ${statusText}</small>
+          <span class="deal-score">${scoreLabel(score)} ${score}</span>
         </div>
         <div class="card-actions">
           <a class="secondary-button link-button" href="${escapeHtml(deal.url)}" target="_blank" rel="noopener">Angebot öffnen</a>
+          <button class="secondary-button" data-action="cycle-deal-status" data-id="${deal.id}">${deal.status === "active" ? "Als geprüft" : deal.status === "checked" ? "Abgelaufen" : "Reaktivieren"}</button>
           <button class="text-danger" data-action="remove-deal" data-id="${deal.id}">Löschen</button>
         </div>
       </article>
     `;
   }).join("");
+}
+
+function renderPriceHistory() {
+  const panel = document.querySelector("#priceHistory");
+  const key = document.querySelector("#searchCatalogItem")?.value;
+  const entries = state.deals.filter(deal => !key || deal.key === key);
+  if (!entries.length) {
+    panel.innerHTML = "";
+    return;
+  }
+  const item = catalogByKey.get(key || entries[0].key);
+  const totals = entries.map(deal => deal.price + deal.shipping);
+  const newest = [...entries].sort((a, b) => String(b.capturedAt).localeCompare(String(a.capturedAt)))[0];
+  panel.innerHTML = `
+    <div class="history-card">
+      <span>Preisverlauf · ${escapeHtml(item?.title || "Auswahl")}</span>
+      <strong>${money(Math.min(...totals))} – ${money(Math.max(...totals))}</strong>
+      <small>${entries.length} gespeicherte Beobachtung${entries.length === 1 ? "" : "en"} · zuletzt ${dateLabel(newest.capturedAt)}</small>
+    </div>
+  `;
 }
 
 function fillSelects() {
@@ -389,6 +476,13 @@ function fillSelects() {
     `<option value="${item.key}">${isWished(item.key) ? "★ " : ""}${seriesLabel(item.series)} #${String(item.number).padStart(2, "0")} – ${escapeHtml(item.title)}</option>`
   ).join("");
   if (catalogByKey.has(currentDeal)) dealSelect.value = currentDeal;
+
+  const searchSelect = document.querySelector("#searchCatalogItem");
+  const currentSearch = searchSelect.value;
+  searchSelect.innerHTML = prioritized.map(item =>
+    `<option value="${item.key}">${isWished(item.key) ? "★ " : ""}${seriesLabel(item.series)} #${String(item.number).padStart(2, "0")} – ${escapeHtml(item.title)}</option>`
+  ).join("");
+  if (catalogByKey.has(currentSearch)) searchSelect.value = currentSearch;
 }
 
 function toggleOwned(key) {
@@ -460,7 +554,16 @@ document.body.addEventListener("click", event => {
   if (action === "remove-owned") toggleOwned(key);
   if (action === "toggle-wish") toggleWish(key);
   if (action === "remove-deal") {
+    if (!confirm("Diesen gespeicherten Deal wirklich löschen?")) return;
     state.deals = state.deals.filter(deal => deal.id !== id);
+    saveState();
+    render();
+  }
+  if (action === "cycle-deal-status") {
+    const deal = state.deals.find(entry => entry.id === id);
+    if (!deal) return;
+    deal.status = deal.status === "active" ? "checked" : deal.status === "checked" ? "expired" : "active";
+    deal.checkedAt = deal.status === "checked" ? new Date().toISOString() : deal.checkedAt;
     saveState();
     render();
   }
@@ -469,12 +572,61 @@ document.body.addEventListener("click", event => {
 const addDialog = document.querySelector("#addDialog");
 const dealDialog = document.querySelector("#dealDialog");
 const dataDialog = document.querySelector("#dataDialog");
+const searchDialog = document.querySelector("#searchDialog");
 
 document.querySelector("#openAddDialog").addEventListener("click", () => addDialog.showModal());
 document.querySelector("#openDealDialog").addEventListener("click", () => dealDialog.showModal());
 document.querySelector("#openDataDialog").addEventListener("click", () => dataDialog.showModal());
 document.querySelectorAll(".close-dialog").forEach(button => {
   button.addEventListener("click", () => button.closest("dialog").close());
+});
+
+function marketSearches(item) {
+  const exact = `Evercade "${item.title}"`;
+  const regular = `Evercade ${item.title}`;
+  const q = encodeURIComponent(exact);
+  const qRegular = encodeURIComponent(regular);
+  return [
+    ["eBay", "Auktionen & Sofortkauf", `https://www.ebay.de/sch/i.html?_nkw=${q}&_sop=15`],
+    ["Kleinanzeigen", "Private Schnäppchen", `https://www.kleinanzeigen.de/s-${qRegular.replaceAll("%20", "-")}/k0`],
+    ["Idealo", "Preisvergleich", `https://www.idealo.de/preisvergleich/MainSearchProductCategory.html?q=${qRegular}`],
+    ["Google Shopping", "Viele Online-Shops", `https://www.google.com/search?tbm=shop&q=${q}`],
+    ["Amazon", "Neu & gebraucht", `https://www.amazon.de/s?k=${qRegular}`],
+    ["Websuche", "Weitere Händler", `https://www.google.com/search?q=${q}+kaufen`]
+  ];
+}
+
+function openDealSearch() {
+  const key = document.querySelector("#searchCatalogItem").value;
+  const item = catalogByKey.get(key);
+  if (!item) return;
+  document.querySelector("#searchDialogTitle").textContent = item.title;
+  document.querySelector("#marketSearchLinks").innerHTML = marketSearches(item).map(([name, hint, url]) => `
+    <a class="search-source" href="${escapeHtml(url)}" target="_blank" rel="noopener">
+      <strong>${escapeHtml(name)}</strong>
+      <span>${escapeHtml(hint)} ↗</span>
+    </a>
+  `).join("");
+  searchDialog.dataset.key = key;
+  searchDialog.showModal();
+}
+
+document.querySelector("#searchDealsButton").addEventListener("click", openDealSearch);
+document.querySelector("#searchCatalogItem").addEventListener("change", renderPriceHistory);
+document.querySelector("#saveSearchResult").addEventListener("click", () => {
+  const key = searchDialog.dataset.key;
+  if (catalogByKey.has(key)) document.querySelector("#dealCatalogItem").value = key;
+  searchDialog.close();
+  dealDialog.showModal();
+  setTimeout(() => document.querySelector("#dealUrl").focus(), 0);
+});
+
+document.querySelector("#dealUrl").addEventListener("change", event => {
+  const detected = sourceFromUrl(event.target.value);
+  const sourceSelect = document.querySelector("#dealSource");
+  if ([...sourceSelect.options].some(option => option.value === detected)) {
+    sourceSelect.value = detected;
+  }
 });
 
 document.querySelector("#addForm").addEventListener("submit", event => {
@@ -510,7 +662,11 @@ document.querySelector("#dealForm").addEventListener("submit", event => {
     condition: document.querySelector("#dealCondition").value,
     source: document.querySelector("#dealSource").value,
     url,
-    capturedAt: new Date().toISOString()
+    color: document.querySelector("#dealColor").value,
+    sellerType: document.querySelector("#dealSellerType").value,
+    status: "active",
+    capturedAt: new Date().toISOString(),
+    checkedAt: null
   });
   saveState();
   event.currentTarget.reset();
@@ -523,7 +679,7 @@ document.querySelector("#dealForm").addEventListener("submit", event => {
 document.querySelector("#exportButton").addEventListener("click", () => {
   const backup = {
     app: "Project Evercade",
-    version: "0.2",
+    version: "0.3",
     exportedAt: new Date().toISOString(),
     data: state
   };
@@ -560,7 +716,7 @@ document.querySelector("#importInput").addEventListener("change", async event =>
 
 document.querySelector("#resetButton").addEventListener("click", () => {
   if (!confirm("Sammlung, Wunschliste und Deals wirklich auf den Ausgangsstand zurücksetzen?")) return;
-  state = { version: 2, owned: structuredClone(defaultOwned), wishlist: [], deals: [] };
+  state = { version: 3, owned: structuredClone(defaultOwned), wishlist: [], deals: [] };
   saveState();
   dataDialog.close();
   render();

@@ -1,24 +1,27 @@
-# Project Evercade – Version 0.2
+# Project Evercade – Version 0.3
 
-Eine mobilfreundliche, statische Web-App zur Verwaltung der persönlichen Evercade-Sammlung.
+Eine mobilfreundliche Web-App zur Verwaltung der persönlichen Evercade-Sammlung und zur gezielten Suche nach günstigen Cartridges.
 
-## Neu in Version 0.2
+## Neu in Version 0.3
 
-- vollständiger Katalog mit 87 bekannten bzw. angekündigten Cartridges
-  - 53 Console-Cartridges (rot)
-  - 24 Arcade-Cartridges (violett)
-  - 10 Home-Computer-Cartridges (blau)
-- Suche und Filter im Katalog
-- Wunschliste, nach niedrigen Nummern priorisiert
-- vorbereitete Suchen bei eBay, Kleinanzeigen und Google
-- Deal-Finder-Datenmodell mit direktem Angebotslink, Preis, Versand, Zustand und Quelle
-- automatische Ermittlung des günstigsten gespeicherten Gesamtpreises
-- Export und Import einer JSON-Sicherung
-- automatische Übernahme der lokalen Daten aus Version 0.1
+- zentrale Deal-Suche für jede Cartridge
+- direkte Suchlinks zu eBay, Kleinanzeigen, Idealo, Google Shopping, Amazon und weiteren Händlern
+- Wunschlisten-Cartridges werden bei der Auswahl bevorzugt
+- gefundene Angebote lassen sich direkt nach der Suche erfassen
+- Quelle wird beim Einfügen eines Links automatisch erkannt
+- Farbe der Cartridge sowie Händler- oder Privatangebot werden gespeichert
+- Dealbewertung anhand Gesamtpreis, Zustand, Anbieter und Quelle
+- Angebotsstatus: aktiv, geprüft oder abgelaufen
+- Preisverlauf mit günstigstem und höchstem gespeichertem Gesamtpreis
+- alle Funktionen aus Version 0.2 bleiben erhalten
 
-## Update von Version 0.1
+## Wichtiger Hinweis zur Suche
 
-Alle fünf Dateien im GitHub-Repository durch die Dateien aus diesem Paket ersetzen:
+Version 0.3 bündelt die Suche und öffnet passende Ergebnisse direkt bei den jeweiligen Marktplätzen. Die App durchsucht noch nicht selbstständig 50 Angebote und kann Preise nicht automatisch aus fremden Seiten übernehmen. Dafür ist in einer späteren Version ein kleiner Serverdienst nötig; eine reine GitHub-Pages-Webseite darf die meisten Marktplätze aus technischen und rechtlichen Gründen nicht direkt auslesen.
+
+## Update von Version 0.2
+
+Alle fünf Dateien im Hauptverzeichnis des GitHub-Repositorys durch die Dateien aus diesem Paket ersetzen:
 
 - `index.html`
 - `styles.css`
@@ -26,19 +29,19 @@ Alle fünf Dateien im GitHub-Repository durch die Dateien aus diesem Paket erset
 - `manifest.json`
 - `README.md`
 
-Die vorhandene Sammlung bleibt auf demselben Gerät und im selben Browser erhalten. Vor späteren Updates empfiehlt sich zusätzlich ein Export über `•••` oben rechts.
+Sammlung, Wunschliste und bereits gespeicherte Deals werden auf demselben Gerät und im selben Browser automatisch aus Version 0.2 übernommen.
 
 ## Datenspeicherung
 
-Die App arbeitet vollständig lokal im Browser. Sammlung, Wunschliste und Deals werden nicht an einen Server übertragen. Ein Wechsel des Browsers oder das Löschen der Websitedaten entfernt die lokalen Daten, sofern vorher keine Sicherung exportiert wurde.
+Die App arbeitet vollständig lokal im Browser. Sammlung, Wunschliste, Deals und Preisbeobachtungen werden nicht an einen Server übertragen. Vor einem Browserwechsel oder dem Löschen von Websitedaten sollte über `•••` eine JSON-Sicherung exportiert werden.
 
 ## Katalogstand
 
-Stand: 23. Juli 2026. Enthalten sind veröffentlichte und bereits konkret angekündigte Cartridges. Legacy-Markierungen basieren auf dem bekannten Stand vom Juni 2026.
+Stand: 23. Juli 2026. Enthalten sind 87 veröffentlichte oder konkret angekündigte Cartridges.
 
-## Nächster Schritt: Version 0.3
+## Nächster Schritt: Version 0.4
 
-- halbautomatische Angebotserfassung
-- Preisverlauf
-- Kennzeichnung bereits geprüfter Angebote
-- Dealbewertung anhand Gesamtpreis, Zustand und Seriosität
+- optionaler Deal-Crawler mit Serverdienst
+- automatische Zusammenführung und Sortierung vieler Angebote
+- Erkennung von Versandkosten und Verfügbarkeit
+- Benachrichtigung bei einem neuen Bestpreis
