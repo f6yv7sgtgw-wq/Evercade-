@@ -1,9 +1,11 @@
 {
   "name": "Project Evercade",
   "short_name": "Evercade",
+  "id": "./",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#0e0e10",
-  "theme_color": "#121212",
-  "description": "Persönlicher Evercade Collection Manager"
+  "theme_color": "#111114",
+  "description": "Evercade-Sammlung, Wunschliste und Deal-Finder"
 }
