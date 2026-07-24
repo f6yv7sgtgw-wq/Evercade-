@@ -1,64 +1,74 @@
-# Project Evercade – Version 0.4
+# Project Evercade – Version 0.5
 
-Eine mobilfreundliche Web-App zur Verwaltung der persönlichen Evercade-Sammlung und zur Suche nach günstigen Cartridges.
+Eine mobilfreundliche Web-App zur Verwaltung der persönlichen Evercade-Sammlung, zur Überwachung aller fehlenden Cartridges und zur Suche nach günstigen Angeboten.
 
-## Neu in Version 0.4
+## Neu in Version 0.5
 
-- 21 fest integrierte Bezugsquellen
-- automatische Live-Suche bei neun Händlern
-- Ermittlung von Preis, günstigster ausgewiesener Versandart nach Deutschland und Gesamtpreis
-- Prüfung von Lieferbarkeit, Zustand, Cartridge-Reihe, Nummer und genauer Titelübereinstimmung
-- Sortierung nach Lieferbarkeit und bekanntem Gesamtpreis inklusive Versand
-- bester gültiger Treffer wird hervorgehoben
-- Live-Angebote lassen sich mit einem Tipp in die Deal-Liste übernehmen
-- Anzeige der geprüften Kandidaten und des Status jeder automatischen Quelle
-- zwölf gezielte Direktsuchen für technisch nicht frei auswertbare Quellen
-- automatische Übernahme aller lokalen Daten aus Version 0.3
+- automatische Überwachung aller Cartridges, die nicht in der eigenen Sammlung stehen
+- Wunschlisten-Titel werden zuerst geprüft, schränken die Überwachung aber nicht ein
+- vollständiger Preischeck in ressourcenschonenden Stapeln
+- lokaler Fortschritt: Ein abgebrochener Lauf kann an derselben Stelle fortgesetzt werden
+- Kaufempfehlung aus lieferbarem Gesamtpreis, Wunschlisten-Priorität, Legacy-Status und niedriger Katalognummer
+- direkte Angebotslinks in der Überwachung
+- Preisverlauf mit bis zu 20 Beobachtungen je Cartridge
+- Anzeige von Preissteigerungen, Preisrückgängen und unveränderten Preisen
+- Filter für Wunschliste, aktuelle Angebote und noch nicht aktuell geprüfte Titel
+- vorhandene Cartridges werden sofort aus der Überwachung entfernt
+- sonntäglicher Wochencheck startet beim Öffnen der App, wenn der letzte vollständige Lauf mindestens sieben Tage zurückliegt
+- automatische Übernahme aller lokalen Daten aus Version 0.4
 
-## Kostenlose Quellenstrategie
+## So funktioniert die Überwachung
 
-| Quelle | Verwendung in Version 0.4 |
+Ein vollständiger Lauf prüft den Katalog abzüglich deiner Sammlung. Dabei werden die fehlenden Titel in Stapeln von höchstens 18 Cartridges an den kostenlosen Suchdienst übergeben. Der Dienst lädt die öffentlichen Händlerbestände je Stapel nur einmal und gleicht sie anschließend mit allen Titeln des Stapels ab. Dadurch sind für 18 Cartridges nicht 162 einzelne Händlersuchen nötig, sondern höchstens neun Bestandsabfragen zuzüglich einzelner Versandprüfungen.
+
+Die Ergebnisse werden nach jedem Stapel lokal gespeichert. Wird die App geschlossen oder die Verbindung unterbrochen, bleiben bereits geprüfte Titel erhalten und der Lauf kann später fortgesetzt werden.
+
+Wichtig: Eine auf dem Home-Bildschirm gespeicherte GitHub-Pages-App kann nicht weiterarbeiten, wenn sie vollständig geschlossen ist. Der sonntägliche Wochencheck startet deshalb automatisch, sobald die App an einem fälligen Sonntag geöffnet wird. Ein laufender vollständiger Check benötigt eine geöffnete App.
+
+## Kaufempfehlung
+
+Für die Empfehlung werden ausschließlich fehlende Cartridges mit bekanntem Gesamtpreis berücksichtigt. Sofort lieferbare Angebote stehen vor Vorbestellungen. Der Gesamtpreis ist das stärkste Kriterium; Neuware, Wunschlisten-Titel, Legacy-Cartridges und niedrige Katalognummern erhalten innerhalb eines kleinen Preisabstands Vorrang. Bereits vorhandene Cartridges werden ausgeschlossen.
+
+## Bezugsquellen
+
+| Quelle | Verwendung |
 | --- | --- |
-| DragonBox | automatische Live-Suche einschließlich Deutschland-Versand |
-| ASC-Shop | automatische Live-Suche; 6,50 € Deutschland-Versand |
-| Just For Games Deutschland | Preis und Verfügbarkeit automatisch; Versand im Warenkorb |
-| Coolshop Deutschland | automatische Live-Suche |
-| Enzinger | automatische Live-Suche; 6,49 € Deutschland-Versand |
-| GameCenterVS | automatische Live-Suche; 4,99 € Deutschland-Versand |
-| Amazon Deutschland | Direktsuche; Creators API setzt ein freigeschaltetes Partnerkonto voraus |
-| MediaMarkt | Direktsuche; automatischer Serverzugriff wird blockiert |
-| Proshop | Direktsuche; automatischer Serverzugriff wird blockiert |
-| Vitrex-Shop | Preis und Bestellstatus automatisch; Versand im Shop |
-| Kaufland-Marktplatz | Direktsuche; automatischer Serverzugriff wird blockiert |
-| Konsolenkost | Direktsuche; Treffer sind nicht stabil maschinenlesbar |
-| Gameware | Direktsuche; automatischer Serverzugriff wird blockiert |
-| eBay Deutschland | Direktsuche; Produktionszugang zur offiziellen API ist genehmigungspflichtig |
-| Kleinanzeigen | direkte Suche; keine frei zugängliche offizielle API |
-| Retroplace | direkte Suche; derzeit nicht stabil maschinell erreichbar |
-| Idealo | Direktsuche; keine freie öffentliche Produktschnittstelle |
-| Geizhals | Direktsuche; keine freie öffentliche Produktschnittstelle |
-| Funstock | Preis, Bestand und Deutschland-Versand automatisch |
-| Games & Guides | Direktsuche; Produktseite derzeit nicht stabil maschinenlesbar |
-| Trumox | automatische Live-Suche; 2,95 € Standardversand |
+| DragonBox | automatische Bestands- und Preissuche einschließlich Deutschland-Versand |
+| ASC-Shop | automatische Bestands- und Preissuche einschließlich Deutschland-Versand |
+| Just For Games Deutschland | automatisch; Versand wird im Warenkorb ermittelt |
+| Coolshop Deutschland | automatische Bestands- und Preissuche |
+| Enzinger | automatische Bestands- und Preissuche |
+| GameCenterVS | automatische Bestands- und Preissuche einschließlich Deutschland-Versand |
+| Amazon Deutschland | gezielte Direktsuche |
+| MediaMarkt | gezielte Direktsuche |
+| Proshop | gezielte Direktsuche |
+| Vitrex-Shop | automatisch; Versand wird im Shop ermittelt |
+| Kaufland-Marktplatz | gezielte Direktsuche |
+| Konsolenkost | gezielte Direktsuche |
+| Gameware | gezielte Direktsuche |
+| eBay Deutschland | gezielte Direktsuche |
+| Kleinanzeigen | gezielte Direktsuche |
+| Retroplace | gezielte Direktsuche |
+| Idealo | gezielte Direktsuche |
+| Geizhals | gezielte Direktsuche |
+| Funstock | automatische Bestands- und Preissuche; Deutschland-Versand nach Warenwert |
+| Games & Guides | gezielte Direktsuche |
+| Trumox | automatische Bestands- und Preissuche einschließlich Standardversand |
 
-Es wird kein kostenpflichtiger Such- oder Crawlerdienst verwendet. Quellen ohne frei nutzbare Schnittstelle werden nicht heimlich oder unter Umgehung technischer Sperren ausgelesen.
-
-Der kostenlose Suchdienst läuft unter `https://project-evercade-deal-api.jnldc.chatgpt.site`. Er akzeptiert Browserzugriffe der Project-Evercade-Webseite und verarbeitet nur Titel, Reihe und Nummer der ausgewählten Cartridge.
+Es wird kein kostenpflichtiger Such- oder Crawlerdienst verwendet. Quellen ohne frei nutzbare Schnittstelle werden nicht unter Umgehung technischer Sperren ausgelesen.
 
 ## Konsistenzregeln
 
-- Nur eindeutig zur ausgewählten Cartridge passende Titel werden übernommen.
-- Reihe, Farbcode und charakteristische Namensteile müssen übereinstimmen; eine gleiche Nummer allein reicht nicht.
-- Konsolen, Controller, Cases und Bundles werden nicht als Cartridge-Angebote übernommen.
-- Nicht lieferbare Angebote werden ausgeschlossen.
-- Sofort lieferbare Angebote stehen vor Vor- und Nachbestellungen.
-- Angebote mit unbekannten Versandkosten werden nie als günstigster Gesamtpreis gewertet.
-- Preis plus Versand muss exakt dem angezeigten Gesamtpreis entsprechen.
-- Direkte Links führen auf das konkrete Händlerangebot.
+- Nur eindeutig zum Katalogtitel passende Produkte werden übernommen.
+- Reihe, Farbcode, Nummer und charakteristische Namensteile werden abgeglichen.
+- Konsolen, Controller, Cases und Hardware-Bundles werden ausgeschlossen.
+- Ausverkaufte Angebote werden ausgeschlossen.
+- Ein Gesamtpreis wird nur verwendet, wenn Preis und Versand rechnerisch übereinstimmen.
+- Angebote mit unbekanntem Versand fließen nicht in die Kaufempfehlung ein.
+- Direkte Links müssen auf ein konkretes Händlerangebot führen.
+- Die App akzeptiert ein Stapelergebnis nur, wenn Titel, Reihe und Nummer mit der angeforderten Cartridge übereinstimmen.
 
-Die Suche zeigt die tatsächlich gefundenen gültigen Angebote. Sie erfindet keine Treffer und verspricht deshalb nicht für jede Cartridge eine feste Anzahl von 50 Angeboten.
-
-## Update von Version 0.3
+## Update von Version 0.4
 
 Alle fünf Dateien im Hauptverzeichnis des GitHub-Repositorys durch die Dateien aus diesem Paket ersetzen:
 
@@ -68,19 +78,12 @@ Alle fünf Dateien im Hauptverzeichnis des GitHub-Repositorys durch die Dateien 
 - `manifest.json`
 - `README.md`
 
-Sammlung, Wunschliste und bereits gespeicherte Deals werden auf demselben Gerät und im selben Browser automatisch aus Version 0.3 übernommen.
+Sammlung, Wunschliste und gespeicherte Deals werden auf demselben Gerät und im selben Browser automatisch übernommen. Neue Preisbeobachtungen werden zusätzlich im lokalen Speicher abgelegt.
 
-## Datenspeicherung
+## Datensicherung
 
-Sammlung, Wunschliste und gespeicherte Deals bleiben lokal im Browser. An den Suchdienst werden bei einer Suche nur Titel, Reihe und Nummer der ausgewählten Cartridge übertragen. Vor einem Browserwechsel oder dem Löschen von Websitedaten sollte über `•••` eine JSON-Sicherung exportiert werden.
+Über `•••` lässt sich eine JSON-Sicherung exportieren und später wieder importieren. Sie enthält Sammlung, Wunschliste, Deals, Überwachungsfortschritt und Preisverläufe.
 
 ## Katalogstand
 
 Stand: 24. Juli 2026. Enthalten sind 87 veröffentlichte oder konkret angekündigte Cartridges.
-
-## Spätere Erweiterungen
-
-- eBay automatisch anbinden, sobald ein kostenloser Produktionszugang genehmigt ist
-- Amazon automatisch anbinden, sobald die Voraussetzungen der Creators API erfüllt sind
-- weitere Direktquellen automatisch anbinden, sobald stabile kostenlose Produktdaten verfügbar sind
-- regelmäßige Preisüberwachung und Benachrichtigung bei einem neuen Bestpreis

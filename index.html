@@ -13,9 +13,9 @@
 <body>
   <header class="app-header">
     <div>
-      <p class="eyebrow">Version 0.4</p>
+      <p class="eyebrow">Version 0.5</p>
       <h1>Project Evercade</h1>
-      <p class="subtitle">Sammlung, Wunschliste & Deals</p>
+      <p class="subtitle">Sammlung, Preiswächter & Deals</p>
     </div>
     <button id="openDataDialog" class="icon-button" title="Daten sichern und wiederherstellen" aria-label="Daten verwalten">•••</button>
   </header>
@@ -27,35 +27,36 @@
         <strong id="totalOwned">0</strong>
       </article>
       <article class="stat-card wishlist-stat">
+        <span class="stat-label">Fehlend</span>
+        <strong id="totalMissing">0</strong>
+      </article>
+      <article class="stat-card deal-stat">
         <span class="stat-label">Wünsche</span>
         <strong id="totalWishlist">0</strong>
       </article>
-      <article class="stat-card deal-stat">
-        <span class="stat-label">Angebote</span>
-        <strong id="totalDeals">0</strong>
-      </article>
       <article class="stat-card">
-        <span class="stat-label">Katalog</span>
-        <strong id="totalCatalog">0</strong>
+        <span class="stat-label">Aktuell geprüft</span>
+        <strong id="totalMonitored">0</strong>
       </article>
     </section>
 
     <section id="bestDealPanel" class="panel deal-panel">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">Bester gespeicherter Deal</p>
-          <h2 id="bestDealTitle">Noch kein Angebot erfasst</h2>
+          <p class="eyebrow">Kaufempfehlung</p>
+          <h2 id="bestDealTitle">Überwachung starten</h2>
         </div>
         <span class="badge">inkl. Versand</span>
       </div>
       <div id="bestDealContent">
-        <p class="muted">Speichere gefundene Angebote unter „Deals“. Das günstigste verfügbare Angebot erscheint automatisch hier.</p>
+        <p class="muted">Prüfe alle fehlenden Cartridges. Das beste verfügbare Angebot erscheint anschließend automatisch hier.</p>
       </div>
     </section>
 
     <nav class="tabs" aria-label="Bereiche">
       <button class="tab active" data-view="collection">Sammlung</button>
       <button class="tab" data-view="catalog">Katalog</button>
+      <button class="tab" data-view="monitor">Monitor</button>
       <button class="tab" data-view="wishlist">Wunschliste</button>
       <button class="tab" data-view="deals">Deals</button>
     </nav>
@@ -98,6 +99,34 @@
       <div id="catalogList" class="card-list"></div>
     </section>
 
+    <section id="monitorView" class="view panel monitor-panel" hidden>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Alle fehlenden Cartridges</p>
+          <h2>Preisüberwachung</h2>
+        </div>
+        <span id="monitorCount" class="badge"></span>
+      </div>
+      <p class="muted compact">Ein Lauf prüft jede Cartridge, die nicht in deiner Sammlung steht. Wunschlisten-Titel werden zuerst bearbeitet; vorhandene Cartridges werden automatisch ausgeschlossen.</p>
+      <div class="monitor-controls">
+        <button id="runMonitorButton" class="primary-button full-width" type="button">Alle fehlenden Cartridges prüfen</button>
+        <button id="stopMonitorButton" class="secondary-button full-width" type="button" hidden>Überwachung pausieren</button>
+        <progress id="monitorProgressBar" value="0" max="1"></progress>
+        <p id="monitorProgressText" class="muted compact">Noch keine Preise geprüft</p>
+      </div>
+      <div id="monitorStatus" class="monitor-status" role="status" aria-live="polite"></div>
+      <label class="monitor-filter-label">
+        Anzeige
+        <select id="monitorFilter">
+          <option value="all">Alle fehlenden</option>
+          <option value="wishlist">Nur Wunschliste</option>
+          <option value="offers">Mit Gesamtpreis</option>
+          <option value="unchecked">Nicht aktuell geprüft</option>
+        </select>
+      </label>
+      <div id="monitorList" class="card-list"></div>
+    </section>
+
     <section id="wishlistView" class="view panel" hidden>
       <div class="section-heading">
         <div>
@@ -106,7 +135,7 @@
         </div>
         <span id="wishlistCount" class="badge"></span>
       </div>
-      <p class="muted compact">Die Suchbuttons öffnen passende Treffer bei eBay, Kleinanzeigen oder Google. Gefundene Angebote kannst du anschließend als Deal speichern.</p>
+      <p class="muted compact">Wunschlisten-Titel werden im Preiswächter zuerst geprüft. Die Suchbuttons öffnen zusätzlich eBay, Kleinanzeigen oder Google.</p>
       <div id="wishlistList" class="card-list"></div>
     </section>
 
@@ -272,7 +301,7 @@
         <h2>Daten verwalten</h2>
         <button type="button" class="icon-button close-dialog" aria-label="Schließen">✕</button>
       </div>
-      <p class="muted">Exportiere regelmäßig eine Sicherung. Sie enthält Sammlung, Wunschliste und Deals.</p>
+      <p class="muted">Exportiere regelmäßig eine Sicherung. Sie enthält Sammlung, Wunschliste, Deals und Preisbeobachtungen.</p>
       <button id="exportButton" class="primary-button full-width">Sicherung exportieren</button>
       <label class="file-button">
         Sicherung importieren

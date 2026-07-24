@@ -1,8 +1,11 @@
-const STORAGE_KEY = "project-evercade-v04";
+const STORAGE_KEY = "project-evercade-v05";
+const V04_STORAGE_KEY = "project-evercade-v04";
 const V03_STORAGE_KEY = "project-evercade-v03";
 const V02_STORAGE_KEY = "project-evercade-v02";
 const LEGACY_STORAGE_KEY = "project-evercade-v01";
 const DEAL_API_URL = "https://project-evercade-deal-api.jnldc.chatgpt.site";
+const MONITOR_BATCH_SIZE = 18;
+const MONITOR_FRESH_DAYS = 7;
 
 const catalog = [
   // Console – rote Hüllen
@@ -80,10 +83,14 @@ let activeView = "collection";
 let filters = { collection: "all", catalog: "all" };
 let latestLiveSearch = null;
 let liveSearchController = null;
+let monitorController = null;
+let monitorRunning = false;
+let monitorError = "";
 
 const views = {
   collection: document.querySelector("#collectionView"),
   catalog: document.querySelector("#catalogView"),
+  monitor: document.querySelector("#monitorView"),
   wishlist: document.querySelector("#wishlistView"),
   deals: document.querySelector("#dealsView")
 };
@@ -92,12 +99,115 @@ function makeId() {
   return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+function emptyMonitorState() {
+  return {
+    observations: {},
+    history: {},
+    pendingKeys: [],
+    cycleTotal: 0,
+    startedAt: null,
+    lastCompletedAt: null,
+    lastAttemptAt: null
+  };
+}
+
+function normalizeObservedOffer(offer) {
+  const url = safeUrl(offer?.url);
+  const price = Number(offer?.price);
+  const shipping = offer?.shipping == null ? null : Number(offer.shipping);
+  const total = offer?.total == null ? null : Number(offer.total);
+  if (!url || !Number.isFinite(price) || price < 0) return null;
+  const shippingKnown = offer?.shippingKnown === true &&
+    Number.isFinite(shipping) &&
+    shipping >= 0 &&
+    Number.isFinite(total);
+  if (
+    shippingKnown &&
+    Math.abs(total - Math.round((price + shipping) * 100) / 100) > 0.01
+  ) return null;
+  return {
+    id: String(offer.id || makeId()),
+    source: String(offer.source || "Online-Shop"),
+    title: String(offer.title || ""),
+    price,
+    shipping: shippingKnown ? shipping : null,
+    total: shippingKnown ? Math.round(total * 100) / 100 : null,
+    shippingKnown,
+    condition: String(offer.condition || "Neu/OVP"),
+    availability: ["in_stock", "preorder", "unknown"].includes(offer.availability)
+      ? offer.availability
+      : "unknown",
+    sellerType: String(offer.sellerType || "Händler"),
+    color: String(offer.color || "Automatisch"),
+    url,
+    confidence: Math.max(0, Math.min(100, Number(offer.confidence) || 0)),
+    verifiedAt: offer.verifiedAt || new Date().toISOString()
+  };
+}
+
+function normalizeMonitorState(value) {
+  const empty = emptyMonitorState();
+  if (!value || typeof value !== "object") return empty;
+  const observations = {};
+  for (const [key, observation] of Object.entries(value.observations || {})) {
+    if (!catalogByKey.has(key) || !observation || typeof observation !== "object") continue;
+    const offers = (observation.offers || [])
+      .map(normalizeObservedOffer)
+      .filter(Boolean)
+      .slice(0, 8);
+    observations[key] = {
+      checkedAt: observation.checkedAt || null,
+      offers,
+      automaticSourcesAvailable: Number(observation.automaticSourcesAvailable) || 0,
+      candidatesExamined: Number(observation.candidatesExamined) || 0
+    };
+  }
+  const history = {};
+  for (const [key, entries] of Object.entries(value.history || {})) {
+    if (!catalogByKey.has(key) || !Array.isArray(entries)) continue;
+    history[key] = entries
+      .filter(entry =>
+        entry &&
+        Number.isFinite(Number(entry.total)) &&
+        Number(entry.total) >= 0 &&
+        safeUrl(entry.url)
+      )
+      .map(entry => ({
+        at: entry.at || new Date().toISOString(),
+        total: Number(entry.total),
+        source: String(entry.source || "Online-Shop"),
+        url: safeUrl(entry.url)
+      }))
+      .slice(-20);
+  }
+  return {
+    observations,
+    history,
+    pendingKeys: [...new Set((value.pendingKeys || []).filter(key => catalogByKey.has(key)))],
+    cycleTotal: Math.max(0, Number(value.cycleTotal) || 0),
+    startedAt: value.startedAt || null,
+    lastCompletedAt: value.lastCompletedAt || null,
+    lastAttemptAt: value.lastAttemptAt || null
+  };
+}
+
 function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (saved && Array.isArray(saved.owned)) return normalizeState(saved);
   } catch (error) {
-    console.warn("Version-0.4-Daten konnten nicht gelesen werden.", error);
+    console.warn("Version-0.5-Daten konnten nicht gelesen werden.", error);
+  }
+
+  try {
+    const previous = JSON.parse(localStorage.getItem(V04_STORAGE_KEY));
+    if (previous && Array.isArray(previous.owned)) {
+      const migrated = normalizeState(previous);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+      return migrated;
+    }
+  } catch (error) {
+    console.warn("Version-0.4-Daten konnten nicht migriert werden.", error);
   }
 
   try {
@@ -126,14 +236,15 @@ function loadState() {
     const legacy = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY));
     if (Array.isArray(legacy)) {
       const migrated = {
-        version: 4,
+        version: 5,
         owned: legacy.map(item => ({
           key: `${item.series}-${Number(item.number)}`,
           condition: item.condition || "Geöffnet",
           price: item.price === "" || item.price == null ? null : Number(item.price)
         })).filter(item => catalogByKey.has(item.key)),
         wishlist: [],
-        deals: []
+        deals: [],
+        monitor: emptyMonitorState()
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
       return migrated;
@@ -142,20 +253,32 @@ function loadState() {
     console.warn("Version-0.1-Daten konnten nicht migriert werden.", error);
   }
 
-  return { version: 4, owned: structuredClone(defaultOwned), wishlist: [], deals: [] };
+  return {
+    version: 5,
+    owned: structuredClone(defaultOwned),
+    wishlist: [],
+    deals: [],
+    monitor: emptyMonitorState()
+  };
 }
 
 function normalizeState(data) {
-  return {
-    version: 4,
-    owned: data.owned
+  const owned = data.owned
       .filter(item => item && catalogByKey.has(item.key))
       .map(item => ({
         key: item.key,
         condition: item.condition || "Geöffnet",
         price: item.price === "" || item.price == null ? null : Number(item.price)
-      })),
-    wishlist: [...new Set((data.wishlist || []).filter(key => catalogByKey.has(key)))],
+      }));
+  const ownedKeys = new Set(owned.map(item => item.key));
+  const monitor = normalizeMonitorState(data.monitor);
+  monitor.pendingKeys = monitor.pendingKeys.filter(key => !ownedKeys.has(key));
+  return {
+    version: 5,
+    owned,
+    wishlist: [...new Set(
+      (data.wishlist || []).filter(key => catalogByKey.has(key) && !ownedKeys.has(key))
+    )],
     deals: (data.deals || [])
       .filter(deal => deal && catalogByKey.has(deal.key))
       .map(deal => ({
@@ -172,7 +295,8 @@ function normalizeState(data) {
         capturedAt: deal.capturedAt || new Date().toISOString(),
         checkedAt: deal.checkedAt || null
       }))
-      .filter(deal => deal.url)
+      .filter(deal => deal.url),
+    monitor
   };
 }
 
@@ -294,6 +418,79 @@ function isWished(key) {
   return state.wishlist.includes(key);
 }
 
+function missingItems() {
+  return sortCatalog(catalog.filter(item => !isOwned(item.key)));
+}
+
+function observationIsFresh(observation, days = MONITOR_FRESH_DAYS) {
+  const checked = new Date(observation?.checkedAt || 0).getTime();
+  return Number.isFinite(checked) && checked > Date.now() - days * 24 * 60 * 60 * 1000;
+}
+
+function bestObservedOffer(key) {
+  const offers = state.monitor.observations[key]?.offers || [];
+  return offers.find(offer => offer.availability === "in_stock" && offer.shippingKnown)
+    || offers.find(offer => offer.shippingKnown)
+    || null;
+}
+
+function recommendationForMissing() {
+  const candidates = missingItems()
+    .map(item => ({
+      item,
+      offer: bestObservedOffer(item.key),
+      observation: state.monitor.observations[item.key]
+    }))
+    .filter(entry => entry.offer);
+  if (!candidates.length) return null;
+  const fresh = candidates.filter(entry => observationIsFresh(entry.observation));
+  const pool = fresh.length ? fresh : candidates;
+  pool.sort((a, b) => {
+    const availabilityRank = { in_stock: 0, preorder: 1, unknown: 2 };
+    const availabilityDifference =
+      (availabilityRank[a.offer.availability] ?? 3) -
+      (availabilityRank[b.offer.availability] ?? 3);
+    if (availabilityDifference) return availabilityDifference;
+    const adjustedA = a.offer.total
+      - (isWished(a.item.key) ? 4 : 0)
+      - (a.item.legacy ? 1.5 : 0)
+      - (a.offer.condition === "Neu/OVP" ? 2 : 0)
+      - Math.max(0, 1 - a.item.number / 60);
+    const adjustedB = b.offer.total
+      - (isWished(b.item.key) ? 4 : 0)
+      - (b.item.legacy ? 1.5 : 0)
+      - (b.offer.condition === "Neu/OVP" ? 2 : 0)
+      - Math.max(0, 1 - b.item.number / 60);
+    return adjustedA - adjustedB
+      || a.offer.total - b.offer.total
+      || a.item.number - b.item.number
+      || seriesOrder[a.item.series] - seriesOrder[b.item.series];
+  });
+  return { ...pool[0], fresh: Boolean(fresh.length) };
+}
+
+function monitorProgress() {
+  const missing = missingItems();
+  const freshCount = missing.filter(item =>
+    observationIsFresh(state.monitor.observations[item.key])
+  ).length;
+  return {
+    missing: missing.length,
+    fresh: freshCount,
+    pending: state.monitor.pendingKeys.filter(key => !isOwned(key)).length
+  };
+}
+
+function priceTrend(key) {
+  const entries = state.monitor.history[key] || [];
+  if (entries.length < 2) return { symbol: "•", label: "erste Beobachtung" };
+  const previous = entries[entries.length - 2].total;
+  const current = entries[entries.length - 1].total;
+  if (current < previous) return { symbol: "↓", label: `${money(previous - current)} günstiger` };
+  if (current > previous) return { symbol: "↑", label: `${money(current - previous)} teurer` };
+  return { symbol: "→", label: "Preis unverändert" };
+}
+
 function itemHeader(item) {
   return `
     <div class="series-strip ${item.series}"></div>
@@ -310,6 +507,7 @@ function render() {
   renderBestDeal();
   renderCollection();
   renderCatalog();
+  renderMonitor();
   renderWishlist();
   renderDeals();
   renderPriceHistory();
@@ -317,20 +515,49 @@ function render() {
 }
 
 function renderStats() {
+  const progress = monitorProgress();
   document.querySelector("#totalOwned").textContent = state.owned.length;
+  document.querySelector("#totalMissing").textContent = progress.missing;
   document.querySelector("#totalWishlist").textContent = state.wishlist.length;
-  document.querySelector("#totalDeals").textContent = state.deals.length;
-  document.querySelector("#totalCatalog").textContent = catalog.length;
+  document.querySelector("#totalMonitored").textContent = progress.fresh;
 }
 
 function renderBestDeal() {
   const title = document.querySelector("#bestDealTitle");
   const content = document.querySelector("#bestDealContent");
-  const validDeals = state.deals.filter(deal => deal.status === "active" && safeUrl(deal.url));
+  const recommendation = recommendationForMissing();
+
+  if (recommendation) {
+    const { item, offer, observation, fresh } = recommendation;
+    const reasons = [
+      `${money(offer.total)} Gesamtpreis`,
+      isWished(item.key) ? "Wunschliste priorisiert" : null,
+      item.legacy ? "Legacy-Cartridge" : null,
+      `#${String(item.number).padStart(2, "0")}`,
+      fresh ? `geprüft ${dateLabel(observation.checkedAt)}` : "Preisprüfung älter als 7 Tage"
+    ].filter(Boolean);
+    title.textContent = item.title;
+    content.innerHTML = `
+      <div class="best-deal-row">
+        <div>
+          <strong class="deal-price">${money(offer.total)}</strong>
+          <p class="muted compact">${escapeHtml(offer.source)} · ${escapeHtml(offer.condition)} · ${escapeHtml(reasons.join(" · "))}</p>
+        </div>
+        <a class="primary-button link-button" href="${escapeHtml(offer.url)}" target="_blank" rel="noopener">Zum Angebot</a>
+      </div>
+    `;
+    return;
+  }
+
+  const validDeals = state.deals.filter(deal =>
+    deal.status === "active" &&
+    safeUrl(deal.url) &&
+    !isOwned(deal.key)
+  );
 
   if (!validDeals.length) {
-    title.textContent = "Noch kein Angebot erfasst";
-    content.innerHTML = '<p class="muted">Starte unter „Deals“ eine Suche. Das günstigste aktive Angebot erscheint automatisch hier.</p>';
+    title.textContent = "Überwachung starten";
+    content.innerHTML = '<p class="muted">Prüfe unter „Monitor“ alle fehlenden Cartridges. Danach erscheint hier die beste Kaufempfehlung mit direktem Angebotslink.</p>';
     return;
   }
 
@@ -405,6 +632,98 @@ function renderCatalog() {
       </div>
     </article>
   `).join("") : '<p class="empty">Keine passende Cartridge gefunden.</p>';
+}
+
+function renderMonitor() {
+  const progress = monitorProgress();
+  const status = document.querySelector("#monitorStatus");
+  const progressBar = document.querySelector("#monitorProgressBar");
+  const progressText = document.querySelector("#monitorProgressText");
+  const runButton = document.querySelector("#runMonitorButton");
+  const stopButton = document.querySelector("#stopMonitorButton");
+  const total = Math.max(state.monitor.cycleTotal || progress.missing, 1);
+  const completed = Math.max(0, total - progress.pending);
+  progressBar.max = total;
+  progressBar.value = monitorRunning ? completed : progress.fresh;
+  progressText.textContent = monitorRunning
+    ? `${completed} von ${total} Cartridges in diesem Lauf geprüft`
+    : `${progress.fresh} von ${progress.missing} fehlenden Cartridges in den letzten 7 Tagen geprüft`;
+  runButton.disabled = monitorRunning || progress.missing === 0;
+  runButton.textContent = progress.pending
+    ? `Überwachung fortsetzen (${progress.pending})`
+    : progress.missing === 0
+      ? "Sammlung vollständig"
+      : progress.fresh === progress.missing
+        ? "Alle Preise jetzt aktualisieren"
+        : "Alle fehlenden Cartridges prüfen";
+  stopButton.hidden = !monitorRunning;
+
+  if (monitorError) {
+    status.className = "monitor-status is-error";
+    status.textContent = monitorError;
+  } else if (monitorRunning) {
+    status.className = "monitor-status is-loading";
+    status.innerHTML = '<span class="loading-dot"></span>Der Preischeck läuft. Die App bitte geöffnet lassen; Ergebnisse werden nach jedem Stapel gespeichert.';
+  } else if (state.monitor.lastCompletedAt) {
+    status.className = "monitor-status";
+    status.textContent = `Letzter vollständiger Lauf: ${dateLabel(state.monitor.lastCompletedAt)} · 9 Händler automatisch · 12 weitere Quellen direkt erreichbar.`;
+  } else {
+    status.className = "monitor-status";
+    status.textContent = "Noch kein vollständiger Lauf. Beim Check werden ausschließlich die Cartridges geprüft, die nicht in deiner Sammlung stehen.";
+  }
+
+  let items = missingItems();
+  const filter = document.querySelector("#monitorFilter")?.value || "all";
+  if (filter === "wishlist") items = items.filter(item => isWished(item.key));
+  if (filter === "offers") items = items.filter(item => bestObservedOffer(item.key));
+  if (filter === "unchecked") {
+    items = items.filter(item => !observationIsFresh(state.monitor.observations[item.key]));
+  }
+  items.sort((a, b) => {
+    const wished = Number(isWished(b.key)) - Number(isWished(a.key));
+    if (wished) return wished;
+    const aTotal = bestObservedOffer(a.key)?.total ?? Number.POSITIVE_INFINITY;
+    const bTotal = bestObservedOffer(b.key)?.total ?? Number.POSITIVE_INFINITY;
+    return aTotal - bTotal
+      || a.number - b.number
+      || seriesOrder[a.series] - seriesOrder[b.series];
+  });
+  document.querySelector("#monitorCount").textContent = `${items.length} angezeigt`;
+
+  const list = document.querySelector("#monitorList");
+  if (!items.length) {
+    list.innerHTML = '<p class="empty">Für diesen Filter gibt es keine fehlenden Cartridges.</p>';
+    return;
+  }
+  list.innerHTML = items.map(item => {
+    const observation = state.monitor.observations[item.key];
+    const offer = bestObservedOffer(item.key);
+    const unknownShipping = observation?.offers?.find(entry => !entry.shippingKnown);
+    const trend = priceTrend(item.key);
+    let detail = "Noch nicht geprüft";
+    if (offer) {
+      detail = `${money(offer.total)} bei ${escapeHtml(offer.source)} · ${trend.symbol} ${escapeHtml(trend.label)} · geprüft ${dateLabel(observation.checkedAt)}`;
+    } else if (unknownShipping) {
+      detail = `ab ${money(unknownShipping.price)} · Versand unbekannt · geprüft ${dateLabel(observation.checkedAt)}`;
+    } else if (observation?.checkedAt) {
+      detail = `Kein eindeutig passendes lieferbares Angebot · geprüft ${dateLabel(observation.checkedAt)}`;
+    }
+    return `
+      <article class="cartridge monitor-card ${observationIsFresh(observation) ? "is-fresh" : ""}">
+        ${itemHeader(item)}
+        <div class="card-detail monitor-detail">${detail}</div>
+        <div class="card-actions">
+          <button class="secondary-button ${isWished(item.key) ? "wish-active" : ""}" data-action="toggle-wish" data-key="${item.key}">
+            ${isWished(item.key) ? "★ Priorisiert" : "☆ Priorisieren"}
+          </button>
+          ${offer
+            ? `<a class="secondary-button link-button" href="${escapeHtml(offer.url)}" target="_blank" rel="noopener">Bestes Angebot</a>`
+            : ""}
+          <button class="secondary-button" data-action="search-missing" data-key="${item.key}">Detailsuche</button>
+        </div>
+      </article>
+    `;
+  }).join("");
 }
 
 function renderWishlist() {
@@ -517,10 +836,11 @@ function fillSelects() {
 
   const searchSelect = document.querySelector("#searchCatalogItem");
   const currentSearch = searchSelect.value;
-  searchSelect.innerHTML = prioritized.map(item =>
+  const searchable = prioritized.filter(item => !isOwned(item.key));
+  searchSelect.innerHTML = searchable.map(item =>
     `<option value="${item.key}">${isWished(item.key) ? "★ " : ""}${seriesLabel(item.series)} #${String(item.number).padStart(2, "0")} – ${escapeHtml(item.title)}</option>`
-  ).join("");
-  if (catalogByKey.has(currentSearch)) searchSelect.value = currentSearch;
+  ).join("") || '<option value="">Sammlung vollständig</option>';
+  if (searchable.some(item => item.key === currentSearch)) searchSelect.value = currentSearch;
 }
 
 function toggleOwned(key) {
@@ -532,6 +852,7 @@ function toggleOwned(key) {
   } else {
     state.owned.push({ key, condition: "Geöffnet", price: null });
     state.wishlist = state.wishlist.filter(entry => entry !== key);
+    state.monitor.pendingKeys = state.monitor.pendingKeys.filter(entry => entry !== key);
     showToast("Zur Sammlung hinzugefügt");
   }
   saveState();
@@ -540,6 +861,10 @@ function toggleOwned(key) {
 
 function toggleWish(key) {
   if (!catalogByKey.has(key)) return;
+  if (isOwned(key) && !isWished(key)) {
+    showToast("Bereits in deiner Sammlung");
+    return;
+  }
   state.wishlist = isWished(key)
     ? state.wishlist.filter(entry => entry !== key)
     : [...state.wishlist, key];
@@ -592,6 +917,14 @@ document.body.addEventListener("click", event => {
   if (action === "remove-owned") toggleOwned(key);
   if (action === "toggle-wish") toggleWish(key);
   if (action === "save-live-deal") saveLiveOffer(id);
+  if (action === "search-missing" && catalogByKey.has(key)) {
+    showView("deals");
+    const select = document.querySelector("#searchCatalogItem");
+    select.value = key;
+    clearLiveSearch();
+    document.querySelector("#dealsView").scrollIntoView?.({ behavior: "smooth", block: "start" });
+    runLiveSearch();
+  }
   if (action === "remove-deal") {
     if (!confirm("Diesen gespeicherten Deal wirklich löschen?")) return;
     state.deals = state.deals.filter(deal => deal.id !== id);
@@ -719,6 +1052,140 @@ function renderLiveSearch(result, item) {
   `;
 }
 
+function applyMonitorBatch(result, batchKeys) {
+  if (!result || !Array.isArray(result.results)) {
+    throw new Error("Ungültige Antwort des Überwachungsdienstes");
+  }
+  const byKey = new Map(result.results.map(entry => [entry.key, entry]));
+  const updates = batchKeys.map(key => {
+    const item = catalogByKey.get(key);
+    const entry = byKey.get(key);
+    if (
+      !item ||
+      !entry ||
+      entry.query?.title !== item.title ||
+      entry.query?.series !== item.series ||
+      Number(entry.query?.number) !== item.number
+    ) {
+      throw new Error(`Inkonsistentes Ergebnis für ${item?.title || key}`);
+    }
+    const offers = (entry.offers || [])
+      .map(normalizeObservedOffer)
+      .filter(Boolean)
+      .slice(0, 8);
+    return {
+      key,
+      observation: {
+        checkedAt: result.searchedAt || new Date().toISOString(),
+        offers,
+        automaticSourcesAvailable:
+          Number(entry.coverage?.automaticSourcesAvailable) ||
+          Number(result.coverage?.automaticSourcesAvailable) ||
+          0,
+        candidatesExamined: Number(entry.coverage?.candidatesExamined) || 0
+      }
+    };
+  });
+
+  for (const update of updates) {
+    state.monitor.observations[update.key] = update.observation;
+    const best = update.observation.offers.find(
+      offer => offer.availability === "in_stock" && offer.shippingKnown
+    ) || update.observation.offers.find(offer => offer.shippingKnown);
+    if (best) {
+      const history = state.monitor.history[update.key] || [];
+      history.push({
+        at: update.observation.checkedAt,
+        total: best.total,
+        source: best.source,
+        url: best.url
+      });
+      state.monitor.history[update.key] = history.slice(-20);
+    }
+  }
+  state.monitor.pendingKeys = state.monitor.pendingKeys.filter(
+    key => !batchKeys.includes(key)
+  );
+  state.monitor.lastAttemptAt = result.searchedAt || new Date().toISOString();
+  saveState();
+}
+
+async function runMonitoring() {
+  if (monitorRunning || !apiIsConfigured()) return;
+  const missing = missingItems();
+  if (!missing.length) {
+    showToast("Deine Sammlung ist vollständig");
+    return;
+  }
+  monitorError = "";
+  const currentMissing = new Set(missing.map(item => item.key));
+  state.monitor.pendingKeys = state.monitor.pendingKeys.filter(key => currentMissing.has(key));
+  if (!state.monitor.pendingKeys.length) {
+    const queue = [...missing].sort((a, b) =>
+      Number(isWished(b.key)) - Number(isWished(a.key)) ||
+      a.number - b.number ||
+      seriesOrder[a.series] - seriesOrder[b.series]
+    );
+    state.monitor.pendingKeys = queue.map(item => item.key);
+    state.monitor.cycleTotal = queue.length;
+    state.monitor.startedAt = new Date().toISOString();
+  }
+  saveState();
+  monitorRunning = true;
+  render();
+
+  try {
+    while (state.monitor.pendingKeys.length) {
+      const batchKeys = state.monitor.pendingKeys.slice(0, MONITOR_BATCH_SIZE);
+      const items = batchKeys
+        .map(key => catalogByKey.get(key))
+        .filter(Boolean)
+        .map(item => ({
+          title: item.title,
+          series: item.series,
+          number: item.number
+        }));
+      if (!items.length) break;
+      monitorController = new AbortController();
+      const response = await fetch(`${DEAL_API_URL.replace(/\/$/, "")}/api/monitor`, {
+        method: "POST",
+        signal: monitorController.signal,
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({ items })
+      });
+      if (!response.ok) throw new Error(`Überwachung fehlgeschlagen (${response.status})`);
+      const result = await response.json();
+      applyMonitorBatch(result, batchKeys);
+      render();
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+    state.monitor.pendingKeys = [];
+    state.monitor.cycleTotal = missingItems().length;
+    state.monitor.startedAt = null;
+    state.monitor.lastCompletedAt = new Date().toISOString();
+    saveState();
+    showToast("Alle fehlenden Cartridges geprüft");
+  } catch (error) {
+    if (error.name === "AbortError") {
+      showToast("Überwachung pausiert");
+    } else {
+      monitorError = "Der Preischeck wurde unterbrochen. Bereits geprüfte Ergebnisse sind gespeichert; mit „Fortsetzen“ geht es an derselben Stelle weiter.";
+      console.warn("Überwachung fehlgeschlagen.", error);
+    }
+  } finally {
+    monitorController = null;
+    monitorRunning = false;
+    render();
+  }
+}
+
+function stopMonitoring() {
+  monitorController?.abort();
+}
+
 async function runLiveSearch() {
   const key = document.querySelector("#searchCatalogItem").value;
   const item = catalogByKey.get(key);
@@ -837,6 +1304,9 @@ function saveLiveOffer(id) {
 
 document.querySelector("#searchDealsButton").addEventListener("click", runLiveSearch);
 document.querySelector("#openManualSearch").addEventListener("click", openManualSearch);
+document.querySelector("#runMonitorButton").addEventListener("click", runMonitoring);
+document.querySelector("#stopMonitorButton").addEventListener("click", stopMonitoring);
+document.querySelector("#monitorFilter").addEventListener("change", renderMonitor);
 document.querySelector("#searchCatalogItem").addEventListener("change", () => {
   clearLiveSearch();
   renderPriceHistory();
@@ -907,7 +1377,7 @@ document.querySelector("#dealForm").addEventListener("submit", event => {
 document.querySelector("#exportButton").addEventListener("click", () => {
   const backup = {
     app: "Project Evercade",
-    version: "0.4",
+    version: "0.5",
     exportedAt: new Date().toISOString(),
     data: state
   };
@@ -944,7 +1414,13 @@ document.querySelector("#importInput").addEventListener("change", async event =>
 
 document.querySelector("#resetButton").addEventListener("click", () => {
   if (!confirm("Sammlung, Wunschliste und Deals wirklich auf den Ausgangsstand zurücksetzen?")) return;
-  state = { version: 4, owned: structuredClone(defaultOwned), wishlist: [], deals: [] };
+  state = {
+    version: 5,
+    owned: structuredClone(defaultOwned),
+    wishlist: [],
+    deals: [],
+    monitor: emptyMonitorState()
+  };
   saveState();
   dataDialog.close();
   render();
@@ -953,3 +1429,10 @@ document.querySelector("#resetButton").addEventListener("click", () => {
 
 render();
 showView(activeView);
+
+const lastWeeklyRun = new Date(state.monitor.lastCompletedAt || 0).getTime();
+const weeklyRunDue = !Number.isFinite(lastWeeklyRun) ||
+  lastWeeklyRun < Date.now() - 7 * 24 * 60 * 60 * 1000;
+if (new Date().getDay() === 0 && weeklyRunDue && missingItems().length) {
+  setTimeout(() => runMonitoring(), 900);
+}
