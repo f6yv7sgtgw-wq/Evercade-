@@ -13,7 +13,7 @@
 <body>
   <header class="app-header">
     <div>
-      <p class="eyebrow">Version 0.3</p>
+      <p class="eyebrow">Version 0.4</p>
       <h1>Project Evercade</h1>
       <p class="subtitle">Sammlung, Wunschliste & Deals</p>
     </div>
@@ -123,10 +123,20 @@
           Cartridge für die Suche
           <select id="searchCatalogItem"></select>
         </label>
-        <button id="searchDealsButton" class="primary-button full-width" type="button">🔎 Deals suchen</button>
-        <p class="muted compact">Öffnet direkte Suchen bei eBay, Kleinanzeigen, Idealo, Google Shopping und weiteren Shops.</p>
+        <button id="searchDealsButton" class="primary-button full-width" type="button">🔎 Angebote automatisch prüfen</button>
+        <button id="openManualSearch" class="secondary-button full-width" type="button">Weitere Quellen direkt durchsuchen</button>
+        <p class="muted compact">21 Bezugsquellen: 9 werden live ausgewertet, 12 weitere öffnen eine gezielte Direktsuche. Der günstigste lieferbare Gesamtpreis steht zuerst.</p>
       </div>
+      <div id="liveSearchStatus" class="live-search-status" role="status" aria-live="polite"></div>
+      <div id="liveDealResults" class="live-deal-results"></div>
+      <div id="sourceCoverage" class="source-coverage"></div>
       <div id="priceHistory" class="price-history"></div>
+      <div class="section-heading saved-deals-heading">
+        <div>
+          <p class="eyebrow">Meine Merkliste</p>
+          <h3>Gespeicherte Angebote</h3>
+        </div>
+      </div>
       <div id="dealList" class="card-list"></div>
     </section>
   </main>
@@ -188,9 +198,27 @@
       <label>
         Quelle
         <select id="dealSource">
-          <option value="eBay">eBay</option>
+          <option value="DragonBox">DragonBox</option>
+          <option value="ASC-Shop">ASC-Shop</option>
+          <option value="Just For Games Deutschland">Just For Games Deutschland</option>
+          <option value="Coolshop Deutschland">Coolshop Deutschland</option>
+          <option value="Enzinger">Enzinger</option>
+          <option value="GameCenterVS">GameCenterVS</option>
+          <option value="Amazon Deutschland">Amazon Deutschland</option>
+          <option value="MediaMarkt">MediaMarkt</option>
+          <option value="Proshop">Proshop</option>
+          <option value="Vitrex-Shop">Vitrex-Shop</option>
+          <option value="Kaufland-Marktplatz">Kaufland-Marktplatz</option>
+          <option value="Konsolenkost">Konsolenkost</option>
+          <option value="Gameware">Gameware</option>
+          <option value="eBay Deutschland">eBay Deutschland</option>
           <option value="Kleinanzeigen">Kleinanzeigen</option>
+          <option value="Retroplace">Retroplace</option>
           <option value="Idealo">Idealo</option>
+          <option value="Geizhals">Geizhals</option>
+          <option value="Funstock">Funstock</option>
+          <option value="Games & Guides">Games & Guides</option>
+          <option value="Trumox">Trumox</option>
           <option value="Online-Shop">Online-Shop</option>
           <option value="Privat">Privat</option>
           <option value="Sonstige">Sonstige</option>
@@ -232,7 +260,7 @@
         </div>
         <button type="button" class="icon-button close-dialog" aria-label="Schließen">✕</button>
       </div>
-      <p class="muted compact">Öffne die Quellen nacheinander. Wenn du ein gutes Angebot findest, kopiere den direkten Link und speichere ihn anschließend als Deal.</p>
+      <p id="manualSearchSummary" class="muted compact">Diese Quellen können kostenlos direkt durchsucht werden. Gefundene Angebote lassen sich anschließend als Deal speichern.</p>
       <div id="marketSearchLinks" class="search-source-list"></div>
       <button id="saveSearchResult" class="primary-button full-width" type="button">Gefundenen Deal speichern</button>
     </div>

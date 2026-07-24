@@ -49,9 +49,10 @@ button { cursor: pointer; }
   background: rgba(14, 14, 16, .9);
 }
 
-h1, h2, p { margin-top: 0; }
+h1, h2, h3, p { margin-top: 0; }
 h1 { margin-bottom: 2px; font-size: 1.7rem; letter-spacing: -.02em; }
 h2 { margin-bottom: 0; font-size: 1.2rem; }
+h3 { margin-bottom: 0; font-size: 1rem; }
 .subtitle, .eyebrow, .muted { color: var(--muted); }
 .subtitle { margin-bottom: 0; font-size: .92rem; }
 .eyebrow {
@@ -109,6 +110,89 @@ main {
 }
 .deal-search-box label { margin-bottom: 0; }
 .deal-search-box .compact { margin: 9px 2px 0; }
+
+.live-search-status:not(:empty) {
+  margin: 0 0 10px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: .84rem;
+  line-height: 1.45;
+}
+.live-search-status.is-loading {
+  border-color: #4a5260;
+  color: #d3d8df;
+}
+.live-search-status.is-error {
+  border-color: #714247;
+  color: #f0b0b0;
+}
+.loading-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: #aee0c0;
+  animation: pulse 1s ease-in-out infinite alternate;
+}
+@keyframes pulse { to { opacity: .25; transform: scale(.72); } }
+
+.live-deal-results {
+  display: grid;
+  gap: 9px;
+  margin-bottom: 10px;
+}
+.live-offer {
+  border-color: #3d5948;
+  background: linear-gradient(145deg, #1b2a21, var(--panel-2));
+}
+.live-offer.is-best { box-shadow: inset 0 0 0 1px #67a37d; }
+.live-offer .deal-detail { grid-template-columns: minmax(82px, auto) 1fr; }
+.live-offer .deal-detail strong { color: #b7e2c6; }
+.best-live-badge {
+  display: inline-flex;
+  width: max-content;
+  margin-left: 7px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #31513d;
+  color: #c9efd6;
+  font-size: .67rem;
+  font-weight: 800;
+  vertical-align: middle;
+}
+.source-coverage:not(:empty) {
+  display: grid;
+  gap: 7px;
+  margin: 0 0 13px;
+  padding: 10px 11px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #151519;
+  color: var(--muted);
+  font-size: .78rem;
+}
+.source-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.source-pill {
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel-2);
+}
+.source-pill.is-ok { color: #b7e2c6; border-color: #3d5948; }
+.source-pill.is-unavailable { color: #e5b2b2; border-color: #714247; }
+.saved-deals-heading {
+  margin-top: 16px;
+  padding-top: 13px;
+  border-top: 1px solid var(--border);
+}
 
 .price-history {
   margin-bottom: 12px;

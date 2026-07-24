@@ -1,6 +1,8 @@
-const STORAGE_KEY = "project-evercade-v03";
+const STORAGE_KEY = "project-evercade-v04";
+const V03_STORAGE_KEY = "project-evercade-v03";
 const V02_STORAGE_KEY = "project-evercade-v02";
 const LEGACY_STORAGE_KEY = "project-evercade-v01";
+const DEAL_API_URL = "https://project-evercade-deal-api.jnldc.chatgpt.site";
 
 const catalog = [
   // Console – rote Hüllen
@@ -76,6 +78,8 @@ const defaultOwned = [
 let state = loadState();
 let activeView = "collection";
 let filters = { collection: "all", catalog: "all" };
+let latestLiveSearch = null;
+let liveSearchController = null;
 
 const views = {
   collection: document.querySelector("#collectionView"),
@@ -93,7 +97,18 @@ function loadState() {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (saved && Array.isArray(saved.owned)) return normalizeState(saved);
   } catch (error) {
-    console.warn("Version-0.3-Daten konnten nicht gelesen werden.", error);
+    console.warn("Version-0.4-Daten konnten nicht gelesen werden.", error);
+  }
+
+  try {
+    const previous = JSON.parse(localStorage.getItem(V03_STORAGE_KEY));
+    if (previous && Array.isArray(previous.owned)) {
+      const migrated = normalizeState(previous);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+      return migrated;
+    }
+  } catch (error) {
+    console.warn("Version-0.3-Daten konnten nicht migriert werden.", error);
   }
 
   try {
@@ -111,7 +126,7 @@ function loadState() {
     const legacy = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY));
     if (Array.isArray(legacy)) {
       const migrated = {
-        version: 3,
+        version: 4,
         owned: legacy.map(item => ({
           key: `${item.series}-${Number(item.number)}`,
           condition: item.condition || "Geöffnet",
@@ -127,12 +142,12 @@ function loadState() {
     console.warn("Version-0.1-Daten konnten nicht migriert werden.", error);
   }
 
-  return { version: 3, owned: structuredClone(defaultOwned), wishlist: [], deals: [] };
+  return { version: 4, owned: structuredClone(defaultOwned), wishlist: [], deals: [] };
 }
 
 function normalizeState(data) {
   return {
-    version: 3,
+    version: 4,
     owned: data.owned
       .filter(item => item && catalogByKey.has(item.key))
       .map(item => ({
@@ -216,10 +231,27 @@ function sourceFromUrl(value) {
   const url = safeUrl(value);
   if (!url) return "Sonstige";
   const host = new URL(url).hostname.toLowerCase();
-  if (host.includes("ebay.")) return "eBay";
+  if (host.includes("ebay.")) return "eBay Deutschland";
   if (host.includes("kleinanzeigen.")) return "Kleinanzeigen";
   if (host.includes("idealo.")) return "Idealo";
-  if (host.includes("amazon.")) return "Online-Shop";
+  if (host.includes("geizhals.")) return "Geizhals";
+  if (host.includes("amazon.")) return "Amazon Deutschland";
+  if (host.includes("dragonbox.")) return "DragonBox";
+  if (host.includes("coolshop.")) return "Coolshop Deutschland";
+  if (host.includes("asc-shop.")) return "ASC-Shop";
+  if (host.includes("shop-justforgames.")) return "Just For Games Deutschland";
+  if (host.includes("enzinger.")) return "Enzinger";
+  if (host.includes("gamecentervs.")) return "GameCenterVS";
+  if (host.includes("mediamarkt.")) return "MediaMarkt";
+  if (host.includes("proshop.")) return "Proshop";
+  if (host.includes("vitrex-shop.")) return "Vitrex-Shop";
+  if (host.includes("kaufland.")) return "Kaufland-Marktplatz";
+  if (host.includes("konsolenkost.")) return "Konsolenkost";
+  if (host.includes("gameware.")) return "Gameware";
+  if (host.includes("retroplace.")) return "Retroplace";
+  if (host.includes("funstock.")) return "Funstock";
+  if (host.includes("gamesandguides.")) return "Games & Guides";
+  if (host.includes("trumox.")) return "Trumox";
   return "Online-Shop";
 }
 
@@ -236,7 +268,13 @@ function dealScore(deal, activeDeals) {
   if (total === cheapest) score += 25;
   if (deal.condition === "Neu/OVP") score += 6;
   if (deal.sellerType === "Händler") score += 7;
-  if (["eBay", "Idealo", "Online-Shop"].includes(deal.source)) score += 4;
+  if ([
+    "eBay", "eBay Deutschland", "Idealo", "Geizhals", "Amazon", "Amazon Deutschland",
+    "DragonBox Shop", "DragonBox", "Coolshop", "Coolshop Deutschland", "ASC Shop", "ASC-Shop",
+    "Just For Games Deutschland", "Enzinger", "GameCenterVS", "MediaMarkt", "Proshop",
+    "Vitrex-Shop", "Kaufland-Marktplatz", "Konsolenkost", "Gameware", "Retroplace",
+    "Funstock", "Games & Guides", "Trumox", "Online-Shop"
+  ].includes(deal.source)) score += 4;
   if (deal.status !== "active") score -= 20;
   return Math.max(0, Math.min(100, score));
 }
@@ -553,6 +591,7 @@ document.body.addEventListener("click", event => {
   if (action === "toggle-owned") toggleOwned(key);
   if (action === "remove-owned") toggleOwned(key);
   if (action === "toggle-wish") toggleWish(key);
+  if (action === "save-live-deal") saveLiveOffer(id);
   if (action === "remove-deal") {
     if (!confirm("Diesen gespeicherten Deal wirklich löschen?")) return;
     state.deals = state.deals.filter(deal => deal.id !== id);
@@ -587,32 +626,221 @@ function marketSearches(item) {
   const q = encodeURIComponent(exact);
   const qRegular = encodeURIComponent(regular);
   return [
-    ["eBay", "Auktionen & Sofortkauf", `https://www.ebay.de/sch/i.html?_nkw=${q}&_sop=15`],
-    ["Kleinanzeigen", "Private Schnäppchen", `https://www.kleinanzeigen.de/s-${qRegular.replaceAll("%20", "-")}/k0`],
-    ["Idealo", "Preisvergleich", `https://www.idealo.de/preisvergleich/MainSearchProductCategory.html?q=${qRegular}`],
-    ["Google Shopping", "Viele Online-Shops", `https://www.google.com/search?tbm=shop&q=${q}`],
-    ["Amazon", "Neu & gebraucht", `https://www.amazon.de/s?k=${qRegular}`],
-    ["Websuche", "Weitere Händler", `https://www.google.com/search?q=${q}+kaufen`]
+    { name: "DragonBox", hint: "Automatische Suche + Kontrolllink", url: `https://dragonbox.de/en-de/search?controller=search&s=${qRegular}` },
+    { name: "ASC-Shop", hint: "Automatische Suche + Kontrolllink", url: `https://www.asc-shop.de/shop/action/modul/side/27/action3/psearch/psearch/show2/modul/10/suchstring/${qRegular}` },
+    { name: "Just For Games Deutschland", hint: "Automatische Suche + Kontrolllink", url: `https://www.shop-justforgames.eu/search?q=${qRegular}&type=product` },
+    { name: "Coolshop Deutschland", hint: "Automatische Suche + Kontrolllink", url: `https://www.coolshop.de/s/?q=${qRegular}` },
+    { name: "Enzinger", hint: "Automatische Suche + Kontrolllink", url: "https://www.enzinger.com/brands/evercade/" },
+    { name: "GameCenterVS", hint: "Automatische Suche + Kontrolllink", url: `https://www.gamecentervs.de/search?q=${qRegular}&type=product` },
+    { name: "Amazon Deutschland", hint: "Direktsuche", url: `https://www.amazon.de/s?k=${qRegular}` },
+    { name: "MediaMarkt", hint: "Direktsuche", url: `https://www.mediamarkt.de/de/search.html?query=${qRegular}` },
+    { name: "Proshop", hint: "Direktsuche", url: `https://www.proshop.de/?s=${qRegular}` },
+    { name: "Vitrex-Shop", hint: "Automatische Suche + Kontrolllink", url: `https://www.vitrex-shop.de/de/erweiterte-suche__13/?itid=13&quicksearch=${qRegular}&search_button=1&send_form=1&vtx_search=1` },
+    { name: "Kaufland-Marktplatz", hint: "Direktsuche", url: `https://www.kaufland.de/s/?search_value=${qRegular}` },
+    { name: "Konsolenkost", hint: "Direktsuche", url: `https://www.konsolenkost.de/search/?sSearch=${qRegular}` },
+    { name: "Gameware", hint: "Direktsuche", url: `https://www.gameware.at/info/spaces/gameware/gamewareSearch?actionTag=search&query=${qRegular}` },
+    { name: "eBay Deutschland", hint: "Auktionen & Sofortkauf", url: `https://www.ebay.de/sch/i.html?_nkw=${q}&_sop=15` },
+    { name: "Kleinanzeigen", hint: "Private Schnäppchen", url: `https://www.kleinanzeigen.de/s-${qRegular.replaceAll("%20", "-")}/k0` },
+    { name: "Retroplace", hint: "Sammler-Marktplatz", url: "https://www.retroplace.com/de/spiele/marktplatz?system_short=evercade" },
+    { name: "Idealo", hint: "Preisvergleich", url: `https://www.idealo.de/preisvergleich/MainSearchProductCategory.html?q=${qRegular}` },
+    { name: "Geizhals", hint: "Preisvergleich", url: `https://geizhals.de/?fs=${qRegular}` },
+    { name: "Funstock", hint: "Automatische Suche + Kontrolllink", url: `https://funstock.co.uk/search?q=${qRegular}&type=product&country=DE` },
+    { name: "Games & Guides", hint: "Evercade-Kategorie", url: "https://www.gamesandguides.de/Evercade" },
+    { name: "Trumox", hint: "Automatische Suche + Kontrolllink", url: `https://trumox.de/advanced_search_result.php?keywords=${qRegular}` }
   ];
 }
 
-function openDealSearch() {
+function apiIsConfigured() {
+  return /^https:\/\/[^_]+/i.test(DEAL_API_URL) && !DEAL_API_URL.startsWith("__");
+}
+
+function clearLiveSearch() {
+  liveSearchController?.abort();
+  liveSearchController = null;
+  latestLiveSearch = null;
+  const status = document.querySelector("#liveSearchStatus");
+  status.className = "live-search-status";
+  status.textContent = "";
+  document.querySelector("#liveDealResults").innerHTML = "";
+  document.querySelector("#sourceCoverage").innerHTML = "";
+}
+
+function renderLiveSearch(result, item) {
+  const status = document.querySelector("#liveSearchStatus");
+  const list = document.querySelector("#liveDealResults");
+  const coverage = document.querySelector("#sourceCoverage");
+  const offers = Array.isArray(result.offers) ? result.offers : [];
+  const checkedAt = new Date(result.searchedAt);
+  const time = Number.isNaN(checkedAt.getTime())
+    ? "gerade eben"
+    : new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit" }).format(checkedAt);
+
+  status.className = "live-search-status";
+  status.textContent = offers.length
+    ? `${offers.length} gültige${offers.length === 1 ? "s Angebot" : " Angebote"} gefunden · geprüft um ${time} Uhr`
+    : `Keine lieferbaren, eindeutig passenden Angebote automatisch gefunden · geprüft um ${time} Uhr. Nutze zusätzlich die direkten Quellen.`;
+
+  list.innerHTML = offers.map((offer, index) => {
+    const shippingText = offer.shippingKnown
+      ? `${money(offer.price)} + ${money(offer.shipping)} Versand`
+      : `${money(offer.price)} · Versand noch unbekannt`;
+    const totalText = offer.total == null ? money(offer.price) : money(offer.total);
+    const availabilityText = {
+      in_stock: "auf Lager",
+      preorder: "vor-/nachbestellbar",
+      unknown: "Verfügbarkeit prüfen"
+    }[offer.availability] || "Verfügbarkeit prüfen";
+    return `
+      <article class="cartridge live-offer ${index === 0 && offer.shippingKnown ? "is-best" : ""}">
+        ${itemHeader(item)}
+        <div class="deal-detail">
+          <strong>${totalText}${index === 0 && offer.shippingKnown ? '<span class="best-live-badge">BESTER TREFFER</span>' : ""}</strong>
+          <span>${escapeHtml(offer.source)} · ${escapeHtml(offer.condition || "Neu/OVP")} · ${escapeHtml(availabilityText)} · ${escapeHtml(offer.color || colorFor(item))}</span>
+          <small>${shippingText} · Titelabgleich ${Number(offer.confidence) || 0} %</small>
+        </div>
+        <div class="card-actions">
+          <a class="secondary-button link-button" href="${escapeHtml(offer.url)}" target="_blank" rel="noopener">Angebot öffnen</a>
+          <button class="primary-button" data-action="save-live-deal" data-id="${escapeHtml(offer.id)}">${offer.shippingKnown ? "Deal speichern" : "Versand ergänzen"}</button>
+        </div>
+      </article>
+    `;
+  }).join("");
+
+  const sourcePills = (result.sources || []).map(source => `
+    <span class="source-pill is-${source.status === "ok" ? "ok" : "unavailable"}">
+      ${source.status === "ok" ? "✓" : "!"} ${escapeHtml(source.name)}: ${Number(source.accepted) || 0}
+    </span>
+  `).join("");
+  coverage.innerHTML = `
+    <span><strong>${Number(result.coverage?.totalSources) || 21} Quellen:</strong> ${Number(result.coverage?.automaticSources) || 9} automatisch · ${Number(result.coverage?.directOnlySources) || 12} als Direktsuche</span>
+    <span>${Number(result.coverage?.candidatesExamined) || 0} Kandidaten geprüft · ${offers.length} nach Titel, Verfügbarkeit, Preis und Versand übernommen</span>
+    <div class="source-pills">${sourcePills}</div>
+    <span>Treffer mit unbekanntem Versand werden nicht als günstigster Gesamtpreis gewertet.</span>
+  `;
+}
+
+async function runLiveSearch() {
   const key = document.querySelector("#searchCatalogItem").value;
   const item = catalogByKey.get(key);
   if (!item) return;
+  if (!apiIsConfigured()) {
+    const status = document.querySelector("#liveSearchStatus");
+    status.className = "live-search-status is-error";
+    status.textContent = "Der kostenlose Suchdienst ist in diesem Paket noch nicht veröffentlicht. Die direkten Suchquellen funktionieren bereits.";
+    return;
+  }
+
+  liveSearchController?.abort();
+  liveSearchController = new AbortController();
+  const button = document.querySelector("#searchDealsButton");
+  const status = document.querySelector("#liveSearchStatus");
+  button.disabled = true;
+  button.textContent = "Angebote werden geprüft …";
+  status.className = "live-search-status is-loading";
+  status.innerHTML = '<span class="loading-dot"></span>Neun Bezugsquellen werden live geprüft. Preise, Versand, Zustand und Verfügbarkeit werden abgeglichen.';
+  document.querySelector("#liveDealResults").innerHTML = "";
+  document.querySelector("#sourceCoverage").innerHTML = "";
+
+  try {
+    const params = new URLSearchParams({
+      title: item.title,
+      series: item.series,
+      number: String(item.number)
+    });
+    const response = await fetch(`${DEAL_API_URL.replace(/\/$/, "")}/api/search?${params}`, {
+      signal: liveSearchController.signal,
+      headers: { accept: "application/json" }
+    });
+    if (!response.ok) throw new Error(`Suche fehlgeschlagen (${response.status})`);
+    const result = await response.json();
+    if (!result || !Array.isArray(result.offers) || !Array.isArray(result.manualSearches)) {
+      throw new Error("Ungültige Antwort des Suchdienstes");
+    }
+    latestLiveSearch = { key, result };
+    renderLiveSearch(result, item);
+  } catch (error) {
+    if (error.name === "AbortError") return;
+    status.className = "live-search-status is-error";
+    status.textContent = "Die automatische Suche ist gerade nicht erreichbar. Nutze die direkten Quellen; deine gespeicherten Daten bleiben unverändert.";
+    console.warn("Automatische Deal-Suche fehlgeschlagen.", error);
+  } finally {
+    button.disabled = false;
+    button.textContent = "🔎 Angebote automatisch prüfen";
+    liveSearchController = null;
+  }
+}
+
+function openManualSearch() {
+  const key = document.querySelector("#searchCatalogItem").value;
+  const item = catalogByKey.get(key);
+  if (!item) return;
+  const liveSources = latestLiveSearch?.key === key
+    ? latestLiveSearch.result.manualSearches.map(source => ({
+      name: source.name,
+      hint: source.reason,
+      url: source.url
+    }))
+    : marketSearches(item);
   document.querySelector("#searchDialogTitle").textContent = item.title;
-  document.querySelector("#marketSearchLinks").innerHTML = marketSearches(item).map(([name, hint, url]) => `
-    <a class="search-source" href="${escapeHtml(url)}" target="_blank" rel="noopener">
-      <strong>${escapeHtml(name)}</strong>
-      <span>${escapeHtml(hint)} ↗</span>
+  document.querySelector("#manualSearchSummary").textContent =
+    `${liveSources.length} Bezugsquellen insgesamt: 9 automatisch, 12 als Direktsuche. Direkttreffer fließen nach dem Speichern in den Preisvergleich ein.`;
+  document.querySelector("#marketSearchLinks").innerHTML = liveSources.map(source => `
+    <a class="search-source" href="${escapeHtml(source.url)}" target="_blank" rel="noopener" title="${escapeHtml(source.hint)}">
+      <strong>${escapeHtml(source.name)}</strong>
+      <span>Öffnen ↗</span>
     </a>
   `).join("");
   searchDialog.dataset.key = key;
   searchDialog.showModal();
 }
 
-document.querySelector("#searchDealsButton").addEventListener("click", openDealSearch);
-document.querySelector("#searchCatalogItem").addEventListener("change", renderPriceHistory);
+function saveLiveOffer(id) {
+  const key = latestLiveSearch?.key;
+  const item = catalogByKey.get(key);
+  const offer = latestLiveSearch?.result?.offers?.find(entry => entry.id === id);
+  if (!item || !offer) return;
+
+  if (!offer.shippingKnown) {
+    document.querySelector("#dealCatalogItem").value = key;
+    document.querySelector("#dealPrice").value = offer.price;
+    document.querySelector("#dealShipping").value = "";
+    document.querySelector("#dealCondition").value = offer.condition || "Neu/OVP";
+    document.querySelector("#dealSource").value = offer.source;
+    document.querySelector("#dealUrl").value = offer.url;
+    document.querySelector("#dealColor").value = offer.color || "Automatisch";
+    document.querySelector("#dealSellerType").value = "Händler";
+    dealDialog.showModal();
+    setTimeout(() => document.querySelector("#dealShipping").focus(), 0);
+    return;
+  }
+
+  const values = {
+    key,
+    price: Number(offer.price),
+    shipping: Number(offer.shipping),
+    condition: offer.condition || "Neu/OVP",
+    source: offer.source,
+    url: safeUrl(offer.url),
+    color: offer.color || "Automatisch",
+    sellerType: "Händler",
+    status: "active",
+    capturedAt: offer.verifiedAt || new Date().toISOString(),
+    checkedAt: new Date().toISOString()
+  };
+  const existing = state.deals.find(deal => deal.key === key && deal.url === values.url);
+  if (existing) Object.assign(existing, values);
+  else state.deals.push({ id: makeId(), ...values });
+  saveState();
+  render();
+  showToast(existing ? "Deal aktualisiert" : "Deal gespeichert");
+}
+
+document.querySelector("#searchDealsButton").addEventListener("click", runLiveSearch);
+document.querySelector("#openManualSearch").addEventListener("click", openManualSearch);
+document.querySelector("#searchCatalogItem").addEventListener("change", () => {
+  clearLiveSearch();
+  renderPriceHistory();
+});
 document.querySelector("#saveSearchResult").addEventListener("click", () => {
   const key = searchDialog.dataset.key;
   if (catalogByKey.has(key)) document.querySelector("#dealCatalogItem").value = key;
@@ -679,7 +907,7 @@ document.querySelector("#dealForm").addEventListener("submit", event => {
 document.querySelector("#exportButton").addEventListener("click", () => {
   const backup = {
     app: "Project Evercade",
-    version: "0.3",
+    version: "0.4",
     exportedAt: new Date().toISOString(),
     data: state
   };
@@ -716,7 +944,7 @@ document.querySelector("#importInput").addEventListener("change", async event =>
 
 document.querySelector("#resetButton").addEventListener("click", () => {
   if (!confirm("Sammlung, Wunschliste und Deals wirklich auf den Ausgangsstand zurücksetzen?")) return;
-  state = { version: 3, owned: structuredClone(defaultOwned), wishlist: [], deals: [] };
+  state = { version: 4, owned: structuredClone(defaultOwned), wishlist: [], deals: [] };
   saveState();
   dataDialog.close();
   render();
