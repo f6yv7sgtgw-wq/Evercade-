@@ -1,4 +1,5 @@
-const STORAGE_KEY = "project-evercade-v05";
+const STORAGE_KEY = "project-evercade-v06";
+const V05_STORAGE_KEY = "project-evercade-v05";
 const V04_STORAGE_KEY = "project-evercade-v04";
 const V03_STORAGE_KEY = "project-evercade-v03";
 const V02_STORAGE_KEY = "project-evercade-v02";
@@ -67,7 +68,8 @@ const catalog = [
   ) || (
     series === "arcade" && [1, 4, 7].includes(number)
   ),
-  announced: (series === "console" && number === 53) || (series === "arcade" && number === 24)
+  announced: (series === "console" && number === 53) ||
+    (series === "arcade" && [23, 24].includes(number))
 }));
 
 const catalogByKey = new Map(catalog.map(item => [item.key, item]));
@@ -76,16 +78,23 @@ const seriesOrder = { console: 0, arcade: 1, computer: 2 };
 const defaultOwned = [
   "console-31", "console-34", "console-37", "console-40",
   "console-48", "arcade-1", "computer-8"
-].map(key => ({ key, condition: "Geöffnet", price: null }));
+].map(key => ({ key, condition: "Geöffnet", price: null, notes: "" }));
 
 let state = loadState();
 let activeView = "collection";
-let filters = { collection: "all", catalog: "all" };
+let filters = {
+  collection: "all",
+  collectionSort: "number",
+  catalog: "all",
+  catalogStatus: "all",
+  catalogSort: "number"
+};
 let latestLiveSearch = null;
 let liveSearchController = null;
 let monitorController = null;
 let monitorRunning = false;
 let monitorError = "";
+let activeDetailKey = null;
 
 const views = {
   collection: document.querySelector("#collectionView"),
@@ -196,7 +205,18 @@ function loadState() {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (saved && Array.isArray(saved.owned)) return normalizeState(saved);
   } catch (error) {
-    console.warn("Version-0.5-Daten konnten nicht gelesen werden.", error);
+    console.warn("Version-0.6-Daten konnten nicht gelesen werden.", error);
+  }
+
+  try {
+    const previous = JSON.parse(localStorage.getItem(V05_STORAGE_KEY));
+    if (previous && Array.isArray(previous.owned)) {
+      const migrated = normalizeState(previous);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+      return migrated;
+    }
+  } catch (error) {
+    console.warn("Version-0.5-Daten konnten nicht migriert werden.", error);
   }
 
   try {
@@ -236,11 +256,12 @@ function loadState() {
     const legacy = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY));
     if (Array.isArray(legacy)) {
       const migrated = {
-        version: 5,
+        version: 6,
         owned: legacy.map(item => ({
           key: `${item.series}-${Number(item.number)}`,
           condition: item.condition || "Geöffnet",
-          price: item.price === "" || item.price == null ? null : Number(item.price)
+          price: item.price === "" || item.price == null ? null : Number(item.price),
+          notes: ""
         })).filter(item => catalogByKey.has(item.key)),
         wishlist: [],
         deals: [],
@@ -254,7 +275,7 @@ function loadState() {
   }
 
   return {
-    version: 5,
+    version: 6,
     owned: structuredClone(defaultOwned),
     wishlist: [],
     deals: [],
@@ -263,38 +284,53 @@ function loadState() {
 }
 
 function normalizeState(data) {
-  const owned = data.owned
+  const ownedByKey = new Map();
+  for (const item of data.owned
       .filter(item => item && catalogByKey.has(item.key))
-      .map(item => ({
-        key: item.key,
-        condition: item.condition || "Geöffnet",
-        price: item.price === "" || item.price == null ? null : Number(item.price)
-      }));
+      .map(item => {
+        const price = item.price === "" || item.price == null ? null : Number(item.price);
+        return {
+          key: item.key,
+          condition: ["Geöffnet", "Neu/OVP", "Gebraucht"].includes(item.condition)
+            ? item.condition
+            : "Geöffnet",
+          price: Number.isFinite(price) && price >= 0 ? price : null,
+          notes: String(item.notes || "").slice(0, 1200)
+        };
+      })) {
+    ownedByKey.set(item.key, item);
+  }
+  const owned = [...ownedByKey.values()];
   const ownedKeys = new Set(owned.map(item => item.key));
   const monitor = normalizeMonitorState(data.monitor);
   monitor.pendingKeys = monitor.pendingKeys.filter(key => !ownedKeys.has(key));
   return {
-    version: 5,
+    version: 6,
     owned,
     wishlist: [...new Set(
       (data.wishlist || []).filter(key => catalogByKey.has(key) && !ownedKeys.has(key))
     )],
     deals: (data.deals || [])
       .filter(deal => deal && catalogByKey.has(deal.key))
-      .map(deal => ({
-        id: deal.id || makeId(),
-        key: deal.key,
-        price: Number(deal.price) || 0,
-        shipping: Number(deal.shipping) || 0,
-        condition: deal.condition || "Gebraucht",
-        source: deal.source || "Sonstige",
-        url: safeUrl(deal.url),
-        color: deal.color || "Automatisch",
-        sellerType: deal.sellerType || "Unbekannt",
-        status: ["active", "checked", "expired"].includes(deal.status) ? deal.status : "active",
-        capturedAt: deal.capturedAt || new Date().toISOString(),
-        checkedAt: deal.checkedAt || null
-      }))
+      .map(deal => {
+        const price = deal.price === "" || deal.price == null ? null : Number(deal.price);
+        const shipping = deal.shipping === "" || deal.shipping == null ? null : Number(deal.shipping);
+        return {
+          id: deal.id || makeId(),
+          key: deal.key,
+          price: Number.isFinite(price) && price >= 0 ? price : null,
+          shipping: Number.isFinite(shipping) && shipping >= 0 ? shipping : null,
+          condition: deal.condition || "Gebraucht",
+          source: deal.source || "Sonstige",
+          url: safeUrl(deal.url),
+          color: deal.color || "Automatisch",
+          sellerType: deal.sellerType || "Unbekannt",
+          status: ["active", "checked", "expired"].includes(deal.status) ? deal.status : "active",
+          capturedAt: deal.capturedAt || new Date().toISOString(),
+          checkedAt: deal.checkedAt || null
+        };
+      })
+      .filter(deal => deal.price != null && deal.shipping != null)
       .filter(deal => deal.url),
     monitor
   };
@@ -324,8 +360,27 @@ function sortWishlist(items) {
   );
 }
 
+function knownMoney(value) {
+  return (
+    value !== null &&
+    value !== undefined &&
+    value !== "" &&
+    Number.isFinite(Number(value)) &&
+    Number(value) >= 0
+  );
+}
+
 function money(value) {
   return `${Number(value).toFixed(2).replace(".", ",")} €`;
+}
+
+function compactMoney(value) {
+  if (!knownMoney(value)) return "–";
+  return new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0
+  }).format(Number(value));
 }
 
 function dateLabel(value) {
@@ -384,6 +439,28 @@ function colorFor(item, selected = "Automatisch") {
   return { console: "Rot", arcade: "Violett", computer: "Blau" }[item.series];
 }
 
+function coverUrl(item) {
+  const params = new URLSearchParams({
+    title: item.title,
+    series: item.series,
+    number: String(item.number)
+  });
+  return `${DEAL_API_URL.replace(/\/$/, "")}/api/cover?${params}`;
+}
+
+function coverMarkup(item, size = "thumb") {
+  return `
+    <div class="cover-art cover-${size} ${item.series}" aria-hidden="true">
+      <div class="cover-fallback">
+        <span>EVERCADE</span>
+        <strong>${escapeHtml(item.title)}</strong>
+        <em>#${String(item.number).padStart(2, "0")}</em>
+      </div>
+      <img data-cover src="${escapeHtml(coverUrl(item))}" alt="" loading="lazy" decoding="async">
+    </div>
+  `;
+}
+
 function dealScore(deal, activeDeals) {
   const total = deal.price + deal.shipping;
   const comparable = activeDeals.filter(item => item.key === deal.key);
@@ -432,6 +509,111 @@ function bestObservedOffer(key) {
   return offers.find(offer => offer.availability === "in_stock" && offer.shippingKnown)
     || offers.find(offer => offer.shippingKnown)
     || null;
+}
+
+function cheapestSavedDeal(key) {
+  return state.deals
+    .filter(deal => deal.key === key && deal.status === "active")
+    .map(deal => ({ ...deal, total: deal.price + deal.shipping }))
+    .sort((a, b) => a.total - b.total)[0] || null;
+}
+
+function latestHistoryEntry(key) {
+  const entries = state.monitor.history[key] || [];
+  return entries.length ? entries[entries.length - 1] : null;
+}
+
+function marketPriceFor(key) {
+  const observed = bestObservedOffer(key);
+  if (observed?.shippingKnown && knownMoney(observed.total)) {
+    return { total: observed.total, source: observed.source, at: observed.verifiedAt, basis: "Preiswächter" };
+  }
+  const history = latestHistoryEntry(key);
+  if (history && knownMoney(history.total)) {
+    return { total: history.total, source: history.source, at: history.at, basis: "Preisverlauf" };
+  }
+  const saved = cheapestSavedDeal(key);
+  if (saved && knownMoney(saved.total)) {
+    return { total: saved.total, source: saved.source, at: saved.capturedAt, basis: "gespeicherter Deal" };
+  }
+  return null;
+}
+
+function collectionMetrics() {
+  const ownedEntries = state.owned
+    .map(entry => ({ entry, item: catalogByKey.get(entry.key) }))
+    .filter(row => row.item);
+  const purchaseRows = ownedEntries.filter(row => knownMoney(row.entry.price));
+  const purchaseTotal = purchaseRows.reduce((sum, row) => sum + Number(row.entry.price), 0);
+  let estimateTotal = 0;
+  let estimateCoverage = 0;
+  for (const row of ownedEntries) {
+    const market = marketPriceFor(row.item.key);
+    const value = market?.total ?? (knownMoney(row.entry.price) ? Number(row.entry.price) : null);
+    if (value == null) continue;
+    estimateTotal += value;
+    estimateCoverage += 1;
+  }
+  const bySeries = Object.fromEntries(
+    Object.keys(seriesOrder).map(series => {
+      const total = catalog.filter(item => item.series === series).length;
+      const owned = ownedEntries.filter(row => row.item.series === series).length;
+      return [series, { total, owned, percent: total ? Math.round(owned / total * 100) : 0 }];
+    })
+  );
+  return {
+    owned: ownedEntries.length,
+    total: catalog.length,
+    missing: catalog.length - ownedEntries.length,
+    percent: catalog.length ? Math.round(ownedEntries.length / catalog.length * 100) : 0,
+    purchaseTotal: Math.round(purchaseTotal * 100) / 100,
+    purchaseCoverage: purchaseRows.length,
+    estimateTotal: Math.round(estimateTotal * 100) / 100,
+    estimateCoverage,
+    bySeries
+  };
+}
+
+function statusFor(item) {
+  if (isOwned(item.key)) return "owned";
+  if (isWished(item.key)) return "wishlist";
+  return "missing";
+}
+
+function statusLabel(item) {
+  return {
+    owned: "In Sammlung",
+    wishlist: "Wunschliste",
+    missing: "Fehlend"
+  }[statusFor(item)];
+}
+
+function sortablePrice(item) {
+  const owned = state.owned.find(entry => entry.key === item.key);
+  const market = marketPriceFor(item.key);
+  if (market) return market.total;
+  if (owned && knownMoney(owned.price)) return Number(owned.price);
+  return Number.POSITIVE_INFINITY;
+}
+
+function sortItems(items, mode = "number") {
+  const sorted = [...items];
+  sorted.sort((a, b) => {
+    if (mode === "title") return a.title.localeCompare(b.title, "de");
+    if (mode === "price") {
+      return sortablePrice(a) - sortablePrice(b)
+        || a.number - b.number
+        || seriesOrder[a.series] - seriesOrder[b.series];
+    }
+    if (mode === "rarity") {
+      return Number(b.legacy) - Number(a.legacy)
+        || Number(a.announced) - Number(b.announced)
+        || a.number - b.number
+        || seriesOrder[a.series] - seriesOrder[b.series];
+    }
+    return seriesOrder[a.series] - seriesOrder[b.series] || a.number - b.number;
+  });
+  return sorted;
 }
 
 function recommendationForMissing() {
@@ -494,9 +676,10 @@ function priceTrend(key) {
 function itemHeader(item) {
   return `
     <div class="series-strip ${item.series}"></div>
+    ${coverMarkup(item)}
     <div class="cartridge-main">
       <p class="cartridge-title">${escapeHtml(item.title)}</p>
-      <p class="cartridge-meta">${seriesLabel(item.series)}${item.legacy ? ' · <span class="legacy">Legacy</span>' : ""}${item.announced ? " · angekündigt" : ""}</p>
+      <p class="cartridge-meta">${seriesLabel(item.series)} · <span class="status-${statusFor(item)}">${statusLabel(item)}</span>${item.legacy ? ' · <span class="legacy">Legacy</span>' : ""}${item.announced ? " · angekündigt" : ""}</p>
     </div>
     <div class="cartridge-number">#${String(item.number).padStart(2, "0")}</div>
   `;
@@ -506,6 +689,7 @@ function render() {
   renderStats();
   renderBestDeal();
   renderCollection();
+  renderSeriesDashboard();
   renderCatalog();
   renderMonitor();
   renderWishlist();
@@ -516,10 +700,41 @@ function render() {
 
 function renderStats() {
   const progress = monitorProgress();
-  document.querySelector("#totalOwned").textContent = state.owned.length;
+  const metrics = collectionMetrics();
+  document.querySelector("#totalOwned").textContent = `${metrics.percent} %`;
   document.querySelector("#totalMissing").textContent = progress.missing;
   document.querySelector("#totalWishlist").textContent = state.wishlist.length;
-  document.querySelector("#totalMonitored").textContent = progress.fresh;
+  document.querySelector("#totalMonitored").textContent = compactMoney(metrics.estimateTotal);
+  document.querySelector("#collectionProgressRing")?.style.setProperty("--progress", `${metrics.percent * 3.6}deg`);
+  if (document.querySelector("#collectionProgressPercent")) {
+    document.querySelector("#collectionProgressPercent").textContent = `${metrics.percent} %`;
+    document.querySelector("#collectionProgressText").textContent =
+      `${metrics.owned} von ${metrics.total} Cartridges`;
+    document.querySelector("#purchaseTotal").textContent = money(metrics.purchaseTotal);
+    document.querySelector("#purchaseCoverage").textContent =
+      `${metrics.purchaseCoverage} von ${metrics.owned} Kaufpreisen erfasst`;
+    document.querySelector("#estimatedValue").textContent = money(metrics.estimateTotal);
+    document.querySelector("#estimateCoverage").textContent =
+      `${metrics.estimateCoverage} von ${metrics.owned} Cartridges bewertet`;
+  }
+}
+
+function renderSeriesDashboard() {
+  const target = document.querySelector("#seriesDashboard");
+  if (!target) return;
+  const metrics = collectionMetrics();
+  target.innerHTML = Object.entries(metrics.bySeries).map(([series, values]) => `
+    <article class="series-progress-card">
+      <div class="series-progress-heading">
+        <span>${seriesLabel(series)}</span>
+        <strong>${values.owned}/${values.total}</strong>
+      </div>
+      <div class="series-progress-track" role="progressbar" aria-label="${seriesLabel(series)}" aria-valuemin="0" aria-valuemax="${values.total}" aria-valuenow="${values.owned}">
+        <span class="${series}" style="width:${values.percent}%"></span>
+      </div>
+      <small>${values.percent} % vollständig</small>
+    </article>
+  `).join("");
 }
 
 function renderBestDeal() {
@@ -582,7 +797,9 @@ function renderCollection() {
   let owned = state.owned
     .map(entry => ({ ...catalogByKey.get(entry.key), ...entry }))
     .filter(item => filters.collection === "all" || item.series === filters.collection);
-  owned = sortCatalog(owned);
+  owned = sortItems(owned, filters.collectionSort);
+  document.querySelector("#ownedCount").textContent =
+    `${owned.length} von ${state.owned.length} angezeigt`;
 
   if (!owned.length) {
     list.innerHTML = '<p class="empty">Keine Cartridges in diesem Bereich.</p>';
@@ -593,10 +810,10 @@ function renderCollection() {
     <article class="cartridge">
       ${itemHeader(item)}
       <div class="card-detail">
-        ${escapeHtml(item.condition)}${item.price != null ? ` · gekauft für ${money(item.price)}` : ""}
+        ${escapeHtml(item.condition)}${item.price != null ? ` · gekauft für ${money(item.price)}` : " · Kaufpreis offen"}${item.notes ? ` · ${escapeHtml(item.notes)}` : ""}
       </div>
       <div class="card-actions">
-        <button class="secondary-button" data-action="toggle-wish" data-key="${item.key}">${isWished(item.key) ? "★ Gewünscht" : "☆ Wunschliste"}</button>
+        <button class="secondary-button" data-action="open-detail" data-key="${item.key}">Details</button>
         <button class="text-danger" data-action="remove-owned" data-key="${item.key}">Entfernen</button>
       </div>
     </article>
@@ -607,6 +824,11 @@ function renderCatalog() {
   const list = document.querySelector("#catalogList");
   const query = document.querySelector("#catalogSearch").value.trim().toLocaleLowerCase("de");
   let items = catalog.filter(item => filters.catalog === "all" || item.series === filters.catalog);
+  if (filters.catalogStatus === "owned") items = items.filter(item => isOwned(item.key));
+  if (filters.catalogStatus === "missing") items = items.filter(item => !isOwned(item.key));
+  if (filters.catalogStatus === "wishlist") items = items.filter(item => isWished(item.key));
+  if (filters.catalogStatus === "legacy") items = items.filter(item => item.legacy);
+  if (filters.catalogStatus === "announced") items = items.filter(item => item.announced);
 
   if (query) {
     items = items.filter(item =>
@@ -616,22 +838,32 @@ function renderCatalog() {
     );
   }
 
-  items = sortCatalog(items);
+  items = sortItems(items, filters.catalogSort);
   document.querySelector("#catalogResultCount").textContent = `${items.length} von ${catalog.length}`;
 
-  list.innerHTML = items.length ? items.map(item => `
-    <article class="cartridge">
-      ${itemHeader(item)}
-      <div class="card-actions">
-        <button class="secondary-button ${isOwned(item.key) ? "is-active" : ""}" data-action="toggle-owned" data-key="${item.key}">
-          ${isOwned(item.key) ? "✓ In Sammlung" : "+ Sammlung"}
-        </button>
-        <button class="secondary-button ${isWished(item.key) ? "is-active wish-active" : ""}" data-action="toggle-wish" data-key="${item.key}">
-          ${isWished(item.key) ? "★ Gewünscht" : "☆ Wunschliste"}
-        </button>
-      </div>
-    </article>
-  `).join("") : '<p class="empty">Keine passende Cartridge gefunden.</p>';
+  list.innerHTML = items.length ? items.map(item => {
+    const market = marketPriceFor(item.key);
+    const owned = state.owned.find(entry => entry.key === item.key);
+    const priceText = market
+      ? `Marktpreis ab ${money(market.total)} · ${escapeHtml(market.source)}`
+      : owned && knownMoney(owned.price)
+        ? `Kaufpreis ${money(owned.price)}`
+        : "Noch kein Preiswert vorhanden";
+    return `
+      <article class="cartridge">
+        ${itemHeader(item)}
+        <div class="card-detail catalog-price">${priceText}</div>
+        <div class="card-actions">
+          <button class="secondary-button" data-action="open-detail" data-key="${item.key}">Details</button>
+          ${isOwned(item.key)
+            ? '<span class="catalog-owned-hint">✓ In Sammlung</span>'
+            : `<button class="secondary-button ${isWished(item.key) ? "is-active wish-active" : ""}" data-action="toggle-wish" data-key="${item.key}">
+                ${isWished(item.key) ? "★ Gewünscht" : "☆ Wunschliste"}
+              </button>`}
+        </div>
+      </article>
+    `;
+  }).join("") : '<p class="empty">Keine passende Cartridge gefunden.</p>';
 }
 
 function renderMonitor() {
@@ -719,6 +951,7 @@ function renderMonitor() {
           ${offer
             ? `<a class="secondary-button link-button" href="${escapeHtml(offer.url)}" target="_blank" rel="noopener">Bestes Angebot</a>`
             : ""}
+          <button class="secondary-button" data-action="open-detail" data-key="${item.key}">Details</button>
           <button class="secondary-button" data-action="search-missing" data-key="${item.key}">Detailsuche</button>
         </div>
       </article>
@@ -748,6 +981,7 @@ function renderWishlist() {
           <a href="https://www.google.com/search?q=${search}" target="_blank" rel="noopener">Google</a>
         </div>
         <div class="card-actions">
+          <button class="secondary-button" data-action="open-detail" data-key="${item.key}">Details</button>
           <button class="secondary-button" data-action="toggle-owned" data-key="${item.key}">${isOwned(item.key) ? "✓ In Sammlung" : "+ Sammlung"}</button>
           <button class="text-danger" data-action="toggle-wish" data-key="${item.key}">Entfernen</button>
         </div>
@@ -843,6 +1077,102 @@ function fillSelects() {
   if (searchable.some(item => item.key === currentSearch)) searchSelect.value = currentSearch;
 }
 
+function detailHistoryEntries(key) {
+  const monitored = (state.monitor.history[key] || []).map(entry => ({
+    at: entry.at,
+    total: Number(entry.total),
+    source: entry.source,
+    url: entry.url,
+    type: "Preiswächter"
+  }));
+  const saved = state.deals
+    .filter(deal => deal.key === key)
+    .map(deal => ({
+      at: deal.capturedAt,
+      total: Number(deal.price) + Number(deal.shipping),
+      source: deal.source,
+      url: deal.url,
+      type: "gespeicherter Deal"
+    }));
+  return [...monitored, ...saved]
+    .filter(entry => knownMoney(entry.total))
+    .sort((a, b) => String(b.at).localeCompare(String(a.at)))
+    .slice(0, 20);
+}
+
+function renderDetailHistory(key) {
+  const panel = document.querySelector("#detailHistory");
+  const entries = detailHistoryEntries(key);
+  if (!entries.length) {
+    panel.innerHTML = '<p class="empty detail-empty">Noch keine Preisbeobachtung für diese Cartridge.</p>';
+    return;
+  }
+  const totals = entries.map(entry => entry.total);
+  panel.innerHTML = `
+    <div class="detail-price-summary">
+      <span><small>Niedrigster Wert</small><strong>${money(Math.min(...totals))}</strong></span>
+      <span><small>Letzter Wert</small><strong>${money(entries[0].total)}</strong></span>
+      <span><small>Höchster Wert</small><strong>${money(Math.max(...totals))}</strong></span>
+    </div>
+    <div class="detail-history-list">
+      ${entries.slice(0, 6).map(entry => `
+        <a href="${escapeHtml(entry.url)}" target="_blank" rel="noopener">
+          <span>${dateLabel(entry.at)} · ${escapeHtml(entry.source)}</span>
+          <strong>${money(entry.total)}</strong>
+        </a>
+      `).join("")}
+    </div>
+  `;
+}
+
+function openDetail(key) {
+  const item = catalogByKey.get(key);
+  if (!item) return;
+  activeDetailKey = key;
+  const owned = state.owned.find(entry => entry.key === key);
+  const market = marketPriceFor(key);
+  document.querySelector("#detailCover").innerHTML = coverMarkup(item, "detail");
+  document.querySelector("#detailEyebrow").textContent =
+    `${seriesLabel(item.series)} · #${String(item.number).padStart(2, "0")}`;
+  document.querySelector("#detailTitle").textContent = item.title;
+  document.querySelector("#detailBadges").innerHTML = `
+    <span class="detail-badge status-${statusFor(item)}">${statusLabel(item)}</span>
+    ${item.legacy ? '<span class="detail-badge legacy">Legacy</span>' : ""}
+    ${item.announced ? '<span class="detail-badge">Angekündigt</span>' : ""}
+    ${market ? `<span class="detail-badge">Markt ${money(market.total)}</span>` : ""}
+  `;
+  document.querySelector("#detailCondition").value = owned?.condition || "Geöffnet";
+  document.querySelector("#detailPrice").value = knownMoney(owned?.price) ? owned.price : "";
+  document.querySelector("#detailNotes").value = owned?.notes || "";
+  document.querySelector("#detailOwnedFields").hidden = !owned;
+  document.querySelector("#saveDetailButton").hidden = !owned;
+  document.querySelector("#detailOwnedButton").textContent = owned
+    ? "Aus Sammlung entfernen"
+    : "Zur Sammlung hinzufügen";
+  document.querySelector("#detailOwnedButton").classList.toggle("danger-button", Boolean(owned));
+  document.querySelector("#detailOwnedButton").classList.toggle("primary-button", !owned);
+  document.querySelector("#detailWishButton").hidden = Boolean(owned);
+  document.querySelector("#detailWishButton").textContent = isWished(key)
+    ? "★ Von Wunschliste entfernen"
+    : "☆ Zur Wunschliste";
+  document.querySelector("#detailDealButton").hidden = Boolean(owned);
+  renderDetailHistory(key);
+  const dialog = document.querySelector("#detailDialog");
+  if (!dialog.open) dialog.showModal();
+}
+
+function openDealSearchFor(key) {
+  const item = catalogByKey.get(key);
+  if (!item || isOwned(key)) return;
+  document.querySelector("#detailDialog")?.close();
+  showView("deals");
+  const select = document.querySelector("#searchCatalogItem");
+  select.value = key;
+  clearLiveSearch();
+  document.querySelector("#dealsView").scrollIntoView?.({ behavior: "smooth", block: "start" });
+  runLiveSearch();
+}
+
 function toggleOwned(key) {
   if (!catalogByKey.has(key)) return;
   if (isOwned(key)) {
@@ -850,13 +1180,14 @@ function toggleOwned(key) {
     if (!confirm(`${item.title} wirklich aus der Sammlung entfernen?`)) return;
     state.owned = state.owned.filter(entry => entry.key !== key);
   } else {
-    state.owned.push({ key, condition: "Geöffnet", price: null });
+    state.owned.push({ key, condition: "Geöffnet", price: null, notes: "" });
     state.wishlist = state.wishlist.filter(entry => entry !== key);
     state.monitor.pendingKeys = state.monitor.pendingKeys.filter(entry => entry !== key);
     showToast("Zur Sammlung hinzugefügt");
   }
   saveState();
   render();
+  if (activeDetailKey === key && document.querySelector("#detailDialog")?.open) openDetail(key);
 }
 
 function toggleWish(key) {
@@ -870,6 +1201,7 @@ function toggleWish(key) {
     : [...state.wishlist, key];
   saveState();
   render();
+  if (activeDetailKey === key && document.querySelector("#detailDialog")?.open) openDetail(key);
 }
 
 function showView(name) {
@@ -908,22 +1240,31 @@ document.querySelectorAll(".series-filters").forEach(group => {
 });
 
 document.querySelector("#catalogSearch").addEventListener("input", renderCatalog);
+document.querySelector("#catalogStatusFilter").addEventListener("change", event => {
+  filters.catalogStatus = event.target.value;
+  renderCatalog();
+});
+document.querySelector("#catalogSort").addEventListener("change", event => {
+  filters.catalogSort = event.target.value;
+  renderCatalog();
+});
+document.querySelector("#collectionSort").addEventListener("change", event => {
+  filters.collectionSort = event.target.value;
+  renderCollection();
+});
 
 document.body.addEventListener("click", event => {
   const button = event.target.closest("[data-action]");
   if (!button) return;
   const { action, key, id } = button.dataset;
+  if (action === "show-view" && button.dataset.view) showView(button.dataset.view);
   if (action === "toggle-owned") toggleOwned(key);
   if (action === "remove-owned") toggleOwned(key);
   if (action === "toggle-wish") toggleWish(key);
+  if (action === "open-detail") openDetail(key);
   if (action === "save-live-deal") saveLiveOffer(id);
   if (action === "search-missing" && catalogByKey.has(key)) {
-    showView("deals");
-    const select = document.querySelector("#searchCatalogItem");
-    select.value = key;
-    clearLiveSearch();
-    document.querySelector("#dealsView").scrollIntoView?.({ behavior: "smooth", block: "start" });
-    runLiveSearch();
+    openDealSearchFor(key);
   }
   if (action === "remove-deal") {
     if (!confirm("Diesen gespeicherten Deal wirklich löschen?")) return;
@@ -941,16 +1282,57 @@ document.body.addEventListener("click", event => {
   }
 });
 
+document.body.addEventListener("error", event => {
+  const image = event.target.closest?.("img[data-cover]");
+  if (!image) return;
+  image.hidden = true;
+  image.closest(".cover-art")?.classList.add("is-fallback");
+}, true);
+
 const addDialog = document.querySelector("#addDialog");
 const dealDialog = document.querySelector("#dealDialog");
 const dataDialog = document.querySelector("#dataDialog");
 const searchDialog = document.querySelector("#searchDialog");
+const detailDialog = document.querySelector("#detailDialog");
 
 document.querySelector("#openAddDialog").addEventListener("click", () => addDialog.showModal());
 document.querySelector("#openDealDialog").addEventListener("click", () => dealDialog.showModal());
 document.querySelector("#openDataDialog").addEventListener("click", () => dataDialog.showModal());
 document.querySelectorAll(".close-dialog").forEach(button => {
   button.addEventListener("click", () => button.closest("dialog").close());
+});
+detailDialog.addEventListener("close", () => {
+  activeDetailKey = null;
+});
+document.querySelector("#detailOwnedButton").addEventListener("click", () => {
+  if (!activeDetailKey) return;
+  toggleOwned(activeDetailKey);
+});
+document.querySelector("#detailWishButton").addEventListener("click", () => {
+  if (!activeDetailKey) return;
+  toggleWish(activeDetailKey);
+});
+document.querySelector("#detailDealButton").addEventListener("click", () => {
+  if (!activeDetailKey) return;
+  openDealSearchFor(activeDetailKey);
+});
+document.querySelector("#detailForm").addEventListener("submit", event => {
+  event.preventDefault();
+  const owned = state.owned.find(entry => entry.key === activeDetailKey);
+  if (!owned) return;
+  const priceText = document.querySelector("#detailPrice").value;
+  const price = priceText === "" ? null : Number(priceText);
+  if (price != null && (!Number.isFinite(price) || price < 0)) {
+    alert("Bitte einen gültigen Kaufpreis eingeben.");
+    return;
+  }
+  owned.condition = document.querySelector("#detailCondition").value;
+  owned.price = price;
+  owned.notes = document.querySelector("#detailNotes").value.trim().slice(0, 1200);
+  saveState();
+  render();
+  openDetail(activeDetailKey);
+  showToast("Cartridge-Details gespeichert");
 });
 
 function marketSearches(item) {
@@ -1272,7 +1654,9 @@ function saveLiveOffer(id) {
     document.querySelector("#dealPrice").value = offer.price;
     document.querySelector("#dealShipping").value = "";
     document.querySelector("#dealCondition").value = offer.condition || "Neu/OVP";
-    document.querySelector("#dealSource").value = offer.source;
+    const sourceSelect = document.querySelector("#dealSource");
+    const exactSourceExists = [...sourceSelect.options].some(option => option.value === offer.source);
+    sourceSelect.value = exactSourceExists ? offer.source : sourceFromUrl(offer.url);
     document.querySelector("#dealUrl").value = offer.url;
     document.querySelector("#dealColor").value = offer.color || "Automatisch";
     document.querySelector("#dealSellerType").value = "Händler";
@@ -1335,7 +1719,8 @@ document.querySelector("#addForm").addEventListener("submit", event => {
   state.owned.push({
     key,
     condition: document.querySelector("#addCondition").value,
-    price: priceValue === "" ? null : Number(priceValue)
+    price: priceValue === "" ? null : Number(priceValue),
+    notes: document.querySelector("#addNotes").value.trim().slice(0, 1200)
   });
   state.wishlist = state.wishlist.filter(entry => entry !== key);
   saveState();
@@ -1377,7 +1762,7 @@ document.querySelector("#dealForm").addEventListener("submit", event => {
 document.querySelector("#exportButton").addEventListener("click", () => {
   const backup = {
     app: "Project Evercade",
-    version: "0.5",
+    version: "0.6",
     exportedAt: new Date().toISOString(),
     data: state
   };
@@ -1415,7 +1800,7 @@ document.querySelector("#importInput").addEventListener("change", async event =>
 document.querySelector("#resetButton").addEventListener("click", () => {
   if (!confirm("Sammlung, Wunschliste und Deals wirklich auf den Ausgangsstand zurücksetzen?")) return;
   state = {
-    version: 5,
+    version: 6,
     owned: structuredClone(defaultOwned),
     wishlist: [],
     deals: [],

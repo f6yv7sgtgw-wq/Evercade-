@@ -7,15 +7,15 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Project Evercade</title>
-  <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="manifest" href="manifest.json?v=0.6.0" />
+  <link rel="stylesheet" href="styles.css?v=0.6.0" />
 </head>
 <body>
   <header class="app-header">
     <div>
-      <p class="eyebrow">Version 0.5</p>
+      <p class="eyebrow">Version 0.6</p>
       <h1>Project Evercade</h1>
-      <p class="subtitle">Sammlung, Preiswächter & Deals</p>
+      <p class="subtitle">Sammlungs-Dashboard, Preiswächter & Deals</p>
     </div>
     <button id="openDataDialog" class="icon-button" title="Daten sichern und wiederherstellen" aria-label="Daten verwalten">•••</button>
   </header>
@@ -23,7 +23,7 @@
   <main>
     <section class="stats-grid" aria-label="Sammlungsübersicht">
       <article class="stat-card">
-        <span class="stat-label">Sammlung</span>
+        <span class="stat-label">Fortschritt</span>
         <strong id="totalOwned">0</strong>
       </article>
       <article class="stat-card wishlist-stat">
@@ -35,7 +35,7 @@
         <strong id="totalWishlist">0</strong>
       </article>
       <article class="stat-card">
-        <span class="stat-label">Aktuell geprüft</span>
+        <span class="stat-label">Schätzwert</span>
         <strong id="totalMonitored">0</strong>
       </article>
     </section>
@@ -54,7 +54,7 @@
     </section>
 
     <nav class="tabs" aria-label="Bereiche">
-      <button class="tab active" data-view="collection">Sammlung</button>
+      <button class="tab active" data-view="collection">Dashboard</button>
       <button class="tab" data-view="catalog">Katalog</button>
       <button class="tab" data-view="monitor">Monitor</button>
       <button class="tab" data-view="wishlist">Wunschliste</button>
@@ -65,9 +65,41 @@
       <div class="section-heading">
         <div>
           <p class="eyebrow">Meine Sammlung</p>
-          <h2>Cartridges</h2>
+          <h2>Sammlungs-Dashboard</h2>
         </div>
         <button id="openAddDialog" class="primary-button">+ Hinzufügen</button>
+      </div>
+      <div class="dashboard-overview">
+        <div id="collectionProgressRing" class="progress-ring" style="--progress:0deg">
+          <div>
+            <strong id="collectionProgressPercent">0 %</strong>
+            <span id="collectionProgressText">0 von 87 Cartridges</span>
+          </div>
+        </div>
+        <div class="value-grid">
+          <article>
+            <span>Erfasste Kaufpreise</span>
+            <strong id="purchaseTotal">0,00 €</strong>
+            <small id="purchaseCoverage">0 Kaufpreise erfasst</small>
+          </article>
+          <article>
+            <span>Geschätzter Sammlungswert</span>
+            <strong id="estimatedValue">0,00 €</strong>
+            <small id="estimateCoverage">0 Cartridges bewertet</small>
+          </article>
+        </div>
+      </div>
+      <div id="seriesDashboard" class="series-dashboard"></div>
+      <div class="dashboard-actions">
+        <button class="secondary-button" data-action="show-view" data-view="catalog">Fehlende im Katalog</button>
+        <button class="secondary-button" data-action="show-view" data-view="monitor">Preise aktualisieren</button>
+      </div>
+      <div class="section-heading collection-heading">
+        <div>
+          <p class="eyebrow">Inventar</p>
+          <h3>Meine Cartridges</h3>
+        </div>
+        <span id="ownedCount" class="badge"></span>
       </div>
       <div class="series-filters" data-filter-group="collection">
         <button class="filter active" data-filter="all">Alle</button>
@@ -75,6 +107,15 @@
         <button class="filter" data-filter="arcade">🟣 Arcade</button>
         <button class="filter" data-filter="computer">🔵 Computer</button>
       </div>
+      <label class="compact-select-label">
+        Sortieren
+        <select id="collectionSort">
+          <option value="number">Katalognummer</option>
+          <option value="title">Name</option>
+          <option value="price">Preiswert</option>
+          <option value="rarity">Legacy zuerst</option>
+        </select>
+      </label>
       <div id="collectionList" class="card-list"></div>
     </section>
 
@@ -90,6 +131,28 @@
         <span class="sr-only">Katalog durchsuchen</span>
         <input id="catalogSearch" type="search" placeholder="Titel oder Nummer suchen …" />
       </label>
+      <div class="catalog-controls">
+        <label>
+          Status
+          <select id="catalogStatusFilter">
+            <option value="all">Alle Status</option>
+            <option value="owned">In Sammlung</option>
+            <option value="missing">Fehlend</option>
+            <option value="wishlist">Wunschliste</option>
+            <option value="legacy">Legacy</option>
+            <option value="announced">Angekündigt</option>
+          </select>
+        </label>
+        <label>
+          Sortierung
+          <select id="catalogSort">
+            <option value="number">Katalognummer</option>
+            <option value="title">Name</option>
+            <option value="price">Preis</option>
+            <option value="rarity">Legacy/Seltenheit</option>
+          </select>
+        </label>
+      </div>
       <div class="series-filters" data-filter-group="catalog">
         <button class="filter active" data-filter="all">Alle</button>
         <button class="filter" data-filter="console">🔴 Console</button>
@@ -192,6 +255,10 @@
         Kaufpreis in € (optional)
         <input id="addPrice" type="number" min="0" step="0.01" inputmode="decimal" />
       </label>
+      <label>
+        Notiz (optional)
+        <textarea id="addNotes" rows="3" maxlength="1200" placeholder="z. B. gekauft bei …"></textarea>
+      </label>
       <button class="primary-button full-width" type="submit">Zur Sammlung hinzufügen</button>
     </form>
   </dialog>
@@ -280,6 +347,56 @@
     </form>
   </dialog>
 
+  <dialog id="detailDialog" class="detail-dialog">
+    <div class="dialog-body">
+      <div class="dialog-header detail-dialog-header">
+        <div>
+          <p id="detailEyebrow" class="eyebrow"></p>
+          <h2 id="detailTitle">Cartridge-Details</h2>
+        </div>
+        <button type="button" class="icon-button close-dialog" aria-label="Schließen">✕</button>
+      </div>
+      <div class="detail-hero">
+        <div id="detailCover"></div>
+        <div>
+          <div id="detailBadges" class="detail-badges"></div>
+          <button id="detailOwnedButton" class="primary-button full-width" type="button">Zur Sammlung hinzufügen</button>
+          <button id="detailWishButton" class="secondary-button full-width" type="button">☆ Zur Wunschliste</button>
+          <button id="detailDealButton" class="secondary-button full-width" type="button">Aktuelle Deals suchen</button>
+        </div>
+      </div>
+      <form id="detailForm" class="detail-form">
+        <div id="detailOwnedFields">
+          <h3>Meine Angaben</h3>
+          <div class="two-columns">
+            <label>
+              Zustand
+              <select id="detailCondition">
+                <option value="Geöffnet">Geöffnet</option>
+                <option value="Neu/OVP">Neu/OVP</option>
+                <option value="Gebraucht">Gebraucht</option>
+              </select>
+            </label>
+            <label>
+              Kaufpreis €
+              <input id="detailPrice" type="number" min="0" step="0.01" inputmode="decimal" />
+            </label>
+          </div>
+          <label>
+            Notizen
+            <textarea id="detailNotes" rows="4" maxlength="1200" placeholder="Händler, Kaufdatum oder Besonderheiten …"></textarea>
+          </label>
+        </div>
+        <button id="saveDetailButton" class="primary-button full-width" type="submit">Details speichern</button>
+      </form>
+      <div class="detail-history-heading">
+        <p class="eyebrow">Preisverlauf</p>
+        <h3>Beobachtete Gesamtpreise</h3>
+      </div>
+      <div id="detailHistory"></div>
+    </div>
+  </dialog>
+
   <dialog id="searchDialog">
     <div class="dialog-body">
       <div class="dialog-header">
@@ -312,6 +429,6 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js"></script>
+  <script src="app.js?v=0.6.0"></script>
 </body>
 </html>

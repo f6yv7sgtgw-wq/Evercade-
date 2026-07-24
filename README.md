@@ -1,74 +1,64 @@
-# Project Evercade – Version 0.5
+# Project Evercade – Version 0.6
 
-Eine mobilfreundliche Web-App zur Verwaltung der persönlichen Evercade-Sammlung, zur Überwachung aller fehlenden Cartridges und zur Suche nach günstigen Angeboten.
+Eine für iPhone und Desktop optimierte Web-App zur Verwaltung der persönlichen Evercade-Sammlung, zur Überwachung fehlender Cartridges und zur Suche nach günstigen Angeboten.
 
-## Neu in Version 0.5
+## Neu in Version 0.6
 
-- automatische Überwachung aller Cartridges, die nicht in der eigenen Sammlung stehen
-- Wunschlisten-Titel werden zuerst geprüft, schränken die Überwachung aber nicht ein
-- vollständiger Preischeck in ressourcenschonenden Stapeln
-- lokaler Fortschritt: Ein abgebrochener Lauf kann an derselben Stelle fortgesetzt werden
-- Kaufempfehlung aus lieferbarem Gesamtpreis, Wunschlisten-Priorität, Legacy-Status und niedriger Katalognummer
-- direkte Angebotslinks in der Überwachung
-- Preisverlauf mit bis zu 20 Beobachtungen je Cartridge
-- Anzeige von Preissteigerungen, Preisrückgängen und unveränderten Preisen
-- Filter für Wunschliste, aktuelle Angebote und noch nicht aktuell geprüfte Titel
-- vorhandene Cartridges werden sofort aus der Überwachung entfernt
-- sonntäglicher Wochencheck startet beim Öffnen der App, wenn der letzte vollständige Lauf mindestens sieben Tage zurückliegt
-- automatische Übernahme aller lokalen Daten aus Version 0.4
+- visuelles Sammlungs-Dashboard mit Fortschritt in Prozent
+- Fortschritt getrennt nach roten Console-, violetten Arcade- und blauen Home-Computer-Cartridges
+- Coverbilder im Katalog, in der Sammlung, im Preiswächter und in der Detailansicht
+- robuste grafische Ersatzcover, falls ein externes Cover nicht geladen werden kann
+- Schätzwert der Sammlung aus beobachteten Marktpreisen, gespeicherten Deals und Kaufpreisen
+- getrennte Anzeige der tatsächlich erfassten Kaufpreise
+- Katalogfilter für vorhanden, fehlend, Wunschliste, Legacy und angekündigt
+- Sortierung nach Nummer, Name, Preis und Legacy/Seltenheit
+- Detailansicht je Cartridge mit Zustand, Kaufpreis, Notizen und Preisverlauf
+- direkter Wechsel von einer fehlenden Cartridge zur aktuellen Dealsuche
+- automatische Übernahme aller lokalen Daten aus Version 0.5
 
-## So funktioniert die Überwachung
+## Berechnung des Sammlungswerts
 
-Ein vollständiger Lauf prüft den Katalog abzüglich deiner Sammlung. Dabei werden die fehlenden Titel in Stapeln von höchstens 18 Cartridges an den kostenlosen Suchdienst übergeben. Der Dienst lädt die öffentlichen Händlerbestände je Stapel nur einmal und gleicht sie anschließend mit allen Titeln des Stapels ab. Dadurch sind für 18 Cartridges nicht 162 einzelne Händlersuchen nötig, sondern höchstens neun Bestandsabfragen zuzüglich einzelner Versandprüfungen.
+Für jede vorhandene Cartridge verwendet die App in dieser Reihenfolge:
 
-Die Ergebnisse werden nach jedem Stapel lokal gespeichert. Wird die App geschlossen oder die Verbindung unterbrochen, bleiben bereits geprüfte Titel erhalten und der Lauf kann später fortgesetzt werden.
+1. den aktuellsten vollständigen Preis aus dem Preiswächter,
+2. den letzten Eintrag aus dem Preisverlauf,
+3. den günstigsten aktiven gespeicherten Deal,
+4. ersatzweise den eigenen Kaufpreis.
 
-Wichtig: Eine auf dem Home-Bildschirm gespeicherte GitHub-Pages-App kann nicht weiterarbeiten, wenn sie vollständig geschlossen ist. Der sonntägliche Wochencheck startet deshalb automatisch, sobald die App an einem fälligen Sonntag geöffnet wird. Ein laufender vollständiger Check benötigt eine geöffnete App.
+Die Abdeckung wird direkt neben dem Schätzwert angezeigt. Cartridges ohne irgendeinen Preiswert werden nicht heimlich mit einem Pauschalpreis angesetzt.
 
-## Kaufempfehlung
+## Katalog und Cover
 
-Für die Empfehlung werden ausschließlich fehlende Cartridges mit bekanntem Gesamtpreis berücksichtigt. Sofort lieferbare Angebote stehen vor Vorbestellungen. Der Gesamtpreis ist das stärkste Kriterium; Neuware, Wunschlisten-Titel, Legacy-Cartridges und niedrige Katalognummern erhalten innerhalb eines kleinen Preisabstands Vorrang. Bereits vorhandene Cartridges werden ausgeschlossen.
+Der Katalogstand umfasst 87 nummerierte, veröffentlichte oder konkret angekündigte Cartridges (Stand 24. Juli 2026). Visco Arcade 1, Visco Arcade 2 und das Banjo-Kazooie Double Pack sind als angekündigt gekennzeichnet. Der bislang unnummerierte DOOM-Teaser wird aufgenommen, sobald eine konkrete Cartridge-Nummer und Produktbezeichnung feststehen.
+
+Cover werden über den kostenlosen öffentlichen Project-Evercade-Dienst geladen. Die App bleibt auch ohne Cover oder bei einer unterbrochenen Verbindung vollständig bedienbar; in diesem Fall erscheint ein farbcodiertes Ersatzcover.
+
+## Preisüberwachung
+
+Ein vollständiger Lauf prüft den Katalog abzüglich deiner Sammlung. Wunschlisten-Titel werden zuerst bearbeitet. Ergebnisse werden nach jedem Stapel lokal gespeichert, sodass ein unterbrochener Lauf später fortgesetzt werden kann.
+
+Die Kaufempfehlung berücksichtigt ausschließlich fehlende Cartridges mit bekanntem Gesamtpreis. Lieferbare Angebote stehen vor Vorbestellungen; Preis, Wunschliste, Legacy-Status und niedrige Katalognummer werden in der Empfehlung gewichtet.
 
 ## Bezugsquellen
 
-| Quelle | Verwendung |
-| --- | --- |
-| DragonBox | automatische Bestands- und Preissuche einschließlich Deutschland-Versand |
-| ASC-Shop | automatische Bestands- und Preissuche einschließlich Deutschland-Versand |
-| Just For Games Deutschland | automatisch; Versand wird im Warenkorb ermittelt |
-| Coolshop Deutschland | automatische Bestands- und Preissuche |
-| Enzinger | automatische Bestands- und Preissuche |
-| GameCenterVS | automatische Bestands- und Preissuche einschließlich Deutschland-Versand |
-| Amazon Deutschland | gezielte Direktsuche |
-| MediaMarkt | gezielte Direktsuche |
-| Proshop | gezielte Direktsuche |
-| Vitrex-Shop | automatisch; Versand wird im Shop ermittelt |
-| Kaufland-Marktplatz | gezielte Direktsuche |
-| Konsolenkost | gezielte Direktsuche |
-| Gameware | gezielte Direktsuche |
-| eBay Deutschland | gezielte Direktsuche |
-| Kleinanzeigen | gezielte Direktsuche |
-| Retroplace | gezielte Direktsuche |
-| Idealo | gezielte Direktsuche |
-| Geizhals | gezielte Direktsuche |
-| Funstock | automatische Bestands- und Preissuche; Deutschland-Versand nach Warenwert |
-| Games & Guides | gezielte Direktsuche |
-| Trumox | automatische Bestands- und Preissuche einschließlich Standardversand |
+21 Bezugsquellen bleiben integriert:
 
-Es wird kein kostenpflichtiger Such- oder Crawlerdienst verwendet. Quellen ohne frei nutzbare Schnittstelle werden nicht unter Umgehung technischer Sperren ausgelesen.
+- 9 automatische Händlerquellen: DragonBox, ASC-Shop, Just For Games, Coolshop, Enzinger, GameCenterVS, Vitrex, Funstock und Trumox
+- 12 gezielte Direktsuchen: Amazon Deutschland, MediaMarkt, Proshop, Kaufland, Konsolenkost, Gameware, eBay, Kleinanzeigen, Retroplace, Idealo, Geizhals und Games & Guides
+
+Es wird kein kostenpflichtiger Such- oder Crawlerdienst verwendet. Quellen ohne frei nutzbaren, stabilen Zugriff werden als Direktsuche geöffnet.
 
 ## Konsistenzregeln
 
-- Nur eindeutig zum Katalogtitel passende Produkte werden übernommen.
-- Reihe, Farbcode, Nummer und charakteristische Namensteile werden abgeglichen.
+- Titel, Reihe, Farbe, Nummer und charakteristische Namensteile müssen zusammenpassen.
 - Konsolen, Controller, Cases und Hardware-Bundles werden ausgeschlossen.
-- Ausverkaufte Angebote werden ausgeschlossen.
-- Ein Gesamtpreis wird nur verwendet, wenn Preis und Versand rechnerisch übereinstimmen.
-- Angebote mit unbekanntem Versand fließen nicht in die Kaufempfehlung ein.
-- Direkte Links müssen auf ein konkretes Händlerangebot führen.
-- Die App akzeptiert ein Stapelergebnis nur, wenn Titel, Reihe und Nummer mit der angeforderten Cartridge übereinstimmen.
+- Ausverkaufte Angebote werden nicht empfohlen.
+- Ein Gesamtpreis wird nur verwendet, wenn Preis und Versand rechnerisch zusammenpassen.
+- Angebote mit unbekanntem Versand werden nicht als günstigster Gesamtpreis gewertet.
+- Direkte Links müssen auf konkrete Händlerangebote führen.
+- Ein Stapelergebnis wird nur übernommen, wenn Titel, Reihe und Nummer mit der angeforderten Cartridge übereinstimmen.
 
-## Update von Version 0.4
+## Update von Version 0.5
 
 Alle fünf Dateien im Hauptverzeichnis des GitHub-Repositorys durch die Dateien aus diesem Paket ersetzen:
 
@@ -78,12 +68,12 @@ Alle fünf Dateien im Hauptverzeichnis des GitHub-Repositorys durch die Dateien 
 - `manifest.json`
 - `README.md`
 
-Sammlung, Wunschliste und gespeicherte Deals werden auf demselben Gerät und im selben Browser automatisch übernommen. Neue Preisbeobachtungen werden zusätzlich im lokalen Speicher abgelegt.
+Sammlung, Wunschliste, gespeicherte Deals, Notizen und Preisverläufe bleiben auf demselben Gerät und im selben Browser erhalten. Version 0.6 liest den lokalen Speicher von Version 0.5 beim ersten Start ein und schreibt ihn in das neue Datenformat.
 
 ## Datensicherung
 
-Über `•••` lässt sich eine JSON-Sicherung exportieren und später wieder importieren. Sie enthält Sammlung, Wunschliste, Deals, Überwachungsfortschritt und Preisverläufe.
+Über `•••` lässt sich eine JSON-Sicherung exportieren und später wieder importieren. Die Sicherung enthält Sammlung, Zustände, Kaufpreise, Notizen, Wunschliste, Deals, Überwachungsfortschritt und Preisverläufe.
 
-## Katalogstand
+## Technischer Hinweis
 
-Stand: 24. Juli 2026. Enthalten sind 87 veröffentlichte oder konkret angekündigte Cartridges.
+GitHub Pages arbeitet nicht weiter, wenn die Homescreen-App vollständig geschlossen ist. Ein fälliger sonntäglicher Wochencheck startet deshalb beim nächsten Öffnen der App. Während eines vollständigen Preischecks muss die App geöffnet bleiben.
