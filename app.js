@@ -1,4 +1,5 @@
-const STORAGE_KEY = "project-evercade-v06";
+const STORAGE_KEY = "project-evercade-v07";
+const V06_STORAGE_KEY = "project-evercade-v06";
 const V05_STORAGE_KEY = "project-evercade-v05";
 const V04_STORAGE_KEY = "project-evercade-v04";
 const V03_STORAGE_KEY = "project-evercade-v03";
@@ -94,12 +95,17 @@ let liveSearchController = null;
 let monitorController = null;
 let monitorRunning = false;
 let monitorError = "";
+let backgroundBusy = false;
+let backgroundError = "";
+let backgroundSyncTimer = null;
+let backgroundSyncPromise = null;
 let activeDetailKey = null;
 
 const views = {
   collection: document.querySelector("#collectionView"),
   catalog: document.querySelector("#catalogView"),
   monitor: document.querySelector("#monitorView"),
+  alerts: document.querySelector("#alertsView"),
   wishlist: document.querySelector("#wishlistView"),
   deals: document.querySelector("#dealsView")
 };
@@ -117,6 +123,89 @@ function emptyMonitorState() {
     startedAt: null,
     lastCompletedAt: null,
     lastAttemptAt: null
+  };
+}
+
+function emptyBackgroundState() {
+  return {
+    enabled: false,
+    deviceId: null,
+    deviceToken: null,
+    automationUrl: null,
+    automationReady: false,
+    priceLimits: {},
+    alerts: [],
+    sourceStatus: [],
+    recommendation: null,
+    lastSyncedAt: null,
+    lastScannedAt: null
+  };
+}
+
+function normalizeBackgroundState(value) {
+  const empty = emptyBackgroundState();
+  if (!value || typeof value !== "object") return empty;
+  const deviceId = String(value.deviceId || "");
+  const deviceToken = String(value.deviceToken || "");
+  const enabled = value.enabled === true &&
+    /^[A-Za-z0-9-]{8,80}$/.test(deviceId) &&
+    /^[A-Za-z0-9_-]{24,160}$/.test(deviceToken);
+  const priceLimits = {};
+  for (const [key, raw] of Object.entries(value.priceLimits || {})) {
+    const amount = Number(raw);
+    if (catalogByKey.has(key) && Number.isFinite(amount) && amount >= 0 && amount <= 500) {
+      priceLimits[key] = Math.round(amount * 100) / 100;
+    }
+  }
+  const alerts = (Array.isArray(value.alerts) ? value.alerts : [])
+    .filter(alert => alert && catalogByKey.has(alert.key))
+    .map(alert => ({
+      id: String(alert.id || makeId()),
+      key: alert.key,
+      type: String(alert.type || "new_best"),
+      title: String(alert.title || "Preisalarm").slice(0, 180),
+      message: String(alert.message || "").slice(0, 500),
+      source: String(alert.source || ""),
+      total: knownMoney(alert.total) ? Number(alert.total) : null,
+      url: safeUrl(alert.url),
+      createdAt: alert.createdAt || new Date().toISOString(),
+      readAt: alert.readAt || null
+    }))
+    .slice(0, 80);
+  const sourceStatus = (Array.isArray(value.sourceStatus) ? value.sourceStatus : [])
+    .map(source => ({
+      name: String(source.name || "").slice(0, 100),
+      status: source.status === "ok" ? "ok" : "unavailable",
+      checkedAt: source.checkedAt || null,
+      lastSuccessAt: source.lastSuccessAt || null,
+      note: String(source.note || "").slice(0, 300),
+      candidatesExamined: Math.max(0, Number(source.candidatesExamined) || 0),
+      accepted: Math.max(0, Number(source.accepted) || 0)
+    }))
+    .filter(source => source.name);
+  let recommendation = null;
+  if (value.recommendation && catalogByKey.has(value.recommendation.key)) {
+    const offer = normalizeObservedOffer(value.recommendation.offer);
+    if (offer?.shippingKnown) {
+      recommendation = {
+        ...value.recommendation,
+        key: value.recommendation.key,
+        offer
+      };
+    }
+  }
+  return {
+    enabled,
+    deviceId: enabled ? deviceId : null,
+    deviceToken: enabled ? deviceToken : null,
+    automationUrl: enabled ? safeUrl(value.automationUrl) : null,
+    automationReady: enabled && value.automationReady === true,
+    priceLimits,
+    alerts,
+    sourceStatus,
+    recommendation,
+    lastSyncedAt: value.lastSyncedAt || null,
+    lastScannedAt: value.lastScannedAt || null
   };
 }
 
@@ -205,7 +294,18 @@ function loadState() {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (saved && Array.isArray(saved.owned)) return normalizeState(saved);
   } catch (error) {
-    console.warn("Version-0.6-Daten konnten nicht gelesen werden.", error);
+    console.warn("Version-0.7-Daten konnten nicht gelesen werden.", error);
+  }
+
+  try {
+    const previous = JSON.parse(localStorage.getItem(V06_STORAGE_KEY));
+    if (previous && Array.isArray(previous.owned)) {
+      const migrated = normalizeState(previous);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+      return migrated;
+    }
+  } catch (error) {
+    console.warn("Version-0.6-Daten konnten nicht migriert werden.", error);
   }
 
   try {
@@ -256,7 +356,7 @@ function loadState() {
     const legacy = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY));
     if (Array.isArray(legacy)) {
       const migrated = {
-        version: 6,
+        version: 7,
         owned: legacy.map(item => ({
           key: `${item.series}-${Number(item.number)}`,
           condition: item.condition || "Geöffnet",
@@ -265,7 +365,8 @@ function loadState() {
         })).filter(item => catalogByKey.has(item.key)),
         wishlist: [],
         deals: [],
-        monitor: emptyMonitorState()
+        monitor: emptyMonitorState(),
+        background: emptyBackgroundState()
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
       return migrated;
@@ -275,11 +376,12 @@ function loadState() {
   }
 
   return {
-    version: 6,
+    version: 7,
     owned: structuredClone(defaultOwned),
     wishlist: [],
     deals: [],
-    monitor: emptyMonitorState()
+    monitor: emptyMonitorState(),
+    background: emptyBackgroundState()
   };
 }
 
@@ -305,7 +407,7 @@ function normalizeState(data) {
   const monitor = normalizeMonitorState(data.monitor);
   monitor.pendingKeys = monitor.pendingKeys.filter(key => !ownedKeys.has(key));
   return {
-    version: 6,
+    version: 7,
     owned,
     wishlist: [...new Set(
       (data.wishlist || []).filter(key => catalogByKey.has(key) && !ownedKeys.has(key))
@@ -332,12 +434,18 @@ function normalizeState(data) {
       })
       .filter(deal => deal.price != null && deal.shipping != null)
       .filter(deal => deal.url),
-    monitor
+    monitor,
+    background: normalizeBackgroundState(data.background)
   };
 }
 
-function saveState() {
+function persistState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function saveState() {
+  persistState();
+  if (state.background?.enabled) scheduleBackgroundSync();
 }
 
 function seriesLabel(series) {
@@ -432,6 +540,317 @@ function sourceFromUrl(value) {
   if (host.includes("gamesandguides.")) return "Games & Guides";
   if (host.includes("trumox.")) return "Trumox";
   return "Online-Shop";
+}
+
+function backgroundAuthorization() {
+  const background = state.background;
+  if (!background?.enabled || !background.deviceId || !background.deviceToken) return "";
+  return `Bearer ${background.deviceId}.${background.deviceToken}`;
+}
+
+function backgroundWatchItems() {
+  return missingItems().map(item => ({
+    title: item.title,
+    series: item.series,
+    number: item.number,
+    wishlist: isWished(item.key),
+    legacy: item.legacy,
+    announced: item.announced,
+    priceLimit: knownMoney(state.background.priceLimits[item.key])
+      ? Number(state.background.priceLimits[item.key])
+      : null
+  }));
+}
+
+async function backgroundRequest(path, options = {}) {
+  const headers = {
+    accept: "application/json",
+    ...(options.body ? { "content-type": "application/json" } : {}),
+    ...(options.auth === false ? {} : { authorization: backgroundAuthorization() }),
+    ...(options.headers || {})
+  };
+  const response = await fetch(`${DEAL_API_URL.replace(/\/$/, "")}${path}`, {
+    method: options.method || "GET",
+    body: options.body ? JSON.stringify(options.body) : undefined,
+    signal: options.signal,
+    headers
+  });
+  let result = null;
+  try {
+    result = await response.json();
+  } catch {
+    result = null;
+  }
+  if (!response.ok) {
+    const error = new Error(result?.error || `Anfrage fehlgeschlagen (${response.status})`);
+    error.status = response.status;
+    throw error;
+  }
+  return result;
+}
+
+function applyBackgroundSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") return;
+  for (const [key, observation] of Object.entries(snapshot.observations || {})) {
+    if (!catalogByKey.has(key) || !observation) continue;
+    const offers = (observation.offers || [])
+      .map(normalizeObservedOffer)
+      .filter(Boolean)
+      .slice(0, 8);
+    state.monitor.observations[key] = {
+      checkedAt: observation.checkedAt || new Date().toISOString(),
+      offers,
+      automaticSourcesAvailable: Number(observation.automaticSourcesAvailable) || 0,
+      candidatesExamined: Number(observation.candidatesExamined) || 0
+    };
+    const best = offers.find(
+      offer => offer.availability === "in_stock" && offer.shippingKnown
+    ) || offers.find(offer => offer.shippingKnown);
+    if (best) {
+      const history = state.monitor.history[key] || [];
+      const previous = history[history.length - 1];
+      if (!previous || previous.total !== best.total || previous.url !== best.url) {
+        history.push({
+          at: observation.checkedAt || new Date().toISOString(),
+          total: best.total,
+          source: best.source,
+          url: best.url
+        });
+      }
+      state.monitor.history[key] = history.slice(-20);
+    }
+  }
+  const background = state.background;
+  background.automationReady = snapshot.device?.automationReady === true;
+  background.lastSyncedAt = snapshot.device?.lastSyncedAt || background.lastSyncedAt;
+  background.lastScannedAt = snapshot.device?.lastScannedAt || background.lastScannedAt;
+  background.priceLimits = {
+    ...background.priceLimits,
+    ...(snapshot.priceLimits || {})
+  };
+  background.alerts = normalizeBackgroundState({
+    ...background,
+    alerts: snapshot.alerts || [],
+    sourceStatus: snapshot.sourceStatus || [],
+    recommendation: snapshot.recommendation || null
+  }).alerts;
+  background.sourceStatus = normalizeBackgroundState({
+    ...background,
+    alerts: background.alerts,
+    sourceStatus: snapshot.sourceStatus || [],
+    recommendation: snapshot.recommendation || null
+  }).sourceStatus;
+  const normalizedRecommendation = normalizeBackgroundState({
+    ...background,
+    alerts: background.alerts,
+    sourceStatus: background.sourceStatus,
+    recommendation: snapshot.recommendation || null
+  }).recommendation;
+  background.recommendation = normalizedRecommendation;
+  if (background.lastScannedAt) state.monitor.lastCompletedAt = background.lastScannedAt;
+  persistState();
+}
+
+function handleBackgroundFailure(error, fallback) {
+  if (error?.status === 401 || error?.status === 404) {
+    state.background = emptyBackgroundState();
+    persistState();
+    backgroundError = "Die Geräteverknüpfung ist abgelaufen. Du kannst sie jederzeit neu aktivieren.";
+    return;
+  }
+  backgroundError = fallback;
+  console.warn("Hintergrundüberwachung fehlgeschlagen.", error);
+}
+
+function scheduleBackgroundSync() {
+  if (!state.background?.enabled) return;
+  clearTimeout(backgroundSyncTimer);
+  backgroundSyncTimer = setTimeout(() => {
+    syncBackgroundWatchList({ silent: true }).catch(() => {});
+  }, 900);
+}
+
+async function syncBackgroundWatchList({ silent = false } = {}) {
+  if (!state.background?.enabled) return null;
+  if (backgroundSyncPromise) return backgroundSyncPromise;
+  if (!silent) {
+    backgroundBusy = true;
+    backgroundError = "";
+    renderAlerts();
+  }
+  backgroundSyncPromise = (async () => {
+    const snapshot = await backgroundRequest("/api/devices/sync", {
+      method: "POST",
+      body: { items: backgroundWatchItems() }
+    });
+    applyBackgroundSnapshot(snapshot);
+    return snapshot;
+  })();
+  try {
+    return await backgroundSyncPromise;
+  } catch (error) {
+    handleBackgroundFailure(error, "Die Sammlung konnte gerade nicht mit dem Preisalarm synchronisiert werden.");
+    throw error;
+  } finally {
+    backgroundSyncPromise = null;
+    if (!silent) {
+      backgroundBusy = false;
+      render();
+    }
+  }
+}
+
+async function enableBackgroundMonitoring() {
+  if (backgroundBusy || state.background?.enabled) return;
+  backgroundBusy = true;
+  backgroundError = "";
+  renderAlerts();
+  try {
+    const registration = await backgroundRequest("/api/devices/register", {
+      method: "POST",
+      auth: false
+    });
+    state.background = {
+      ...emptyBackgroundState(),
+      enabled: true,
+      deviceId: registration.deviceId,
+      deviceToken: registration.deviceToken
+    };
+    persistState();
+    await syncBackgroundWatchList({ silent: true });
+    const firstScan = await backgroundRequest("/api/devices/scan", {
+      method: "POST",
+      body: { force: true }
+    });
+    applyBackgroundSnapshot(firstScan);
+    await createAutomationLink({ copy: false, silent: true });
+    showToast("Hintergrundüberwachung aktiviert");
+  } catch (error) {
+    handleBackgroundFailure(error, "Die Hintergrundüberwachung konnte gerade nicht aktiviert werden.");
+  } finally {
+    backgroundBusy = false;
+    render();
+  }
+}
+
+async function refreshBackgroundStatus({ silent = true } = {}) {
+  if (!state.background?.enabled || backgroundBusy) return;
+  if (!silent) {
+    backgroundBusy = true;
+    backgroundError = "";
+    renderAlerts();
+  }
+  try {
+    const snapshot = await backgroundRequest("/api/devices/status");
+    applyBackgroundSnapshot(snapshot);
+  } catch (error) {
+    handleBackgroundFailure(error, "Der Alarmstatus konnte gerade nicht geladen werden.");
+  } finally {
+    if (!silent) backgroundBusy = false;
+    render();
+  }
+}
+
+async function runBackgroundScan() {
+  if (!state.background?.enabled || backgroundBusy) return;
+  backgroundBusy = true;
+  backgroundError = "";
+  renderAlerts();
+  try {
+    await syncBackgroundWatchList({ silent: true });
+    const snapshot = await backgroundRequest("/api/devices/scan", {
+      method: "POST",
+      body: { force: true }
+    });
+    applyBackgroundSnapshot(snapshot);
+    showToast(snapshot.scan?.skipped ? "Preise sind bereits aktuell" : "Hintergrund-Preischeck abgeschlossen");
+  } catch (error) {
+    handleBackgroundFailure(error, "Der Hintergrund-Preischeck wurde unterbrochen. Deine bisherigen Daten bleiben erhalten.");
+  } finally {
+    backgroundBusy = false;
+    render();
+  }
+}
+
+async function createAutomationLink({ copy = true, silent = false } = {}) {
+  if (!state.background?.enabled) return;
+  if (!silent) {
+    backgroundBusy = true;
+    backgroundError = "";
+    renderAlerts();
+  }
+  try {
+    const result = await backgroundRequest("/api/devices/automation-link", {
+      method: "POST",
+      body: {}
+    });
+    state.background.automationUrl = safeUrl(result.automationUrl);
+    state.background.automationReady = Boolean(state.background.automationUrl);
+    persistState();
+    if (copy) await copyAutomationLink();
+  } catch (error) {
+    handleBackgroundFailure(error, "Der Verknüpfungslink konnte gerade nicht erstellt werden.");
+  } finally {
+    if (!silent) {
+      backgroundBusy = false;
+      render();
+    }
+  }
+}
+
+async function copyAutomationLink() {
+  const url = state.background?.automationUrl;
+  if (!url) return;
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast("Verknüpfungslink kopiert");
+  } catch {
+    const input = document.querySelector("#automationUrl");
+    input?.focus();
+    input?.select();
+    showToast("Link markieren und kopieren");
+  }
+}
+
+async function markAlertsRead() {
+  if (!state.background?.enabled || backgroundBusy) return;
+  backgroundBusy = true;
+  renderAlerts();
+  try {
+    const snapshot = await backgroundRequest("/api/devices/alerts/read", {
+      method: "POST",
+      body: {}
+    });
+    applyBackgroundSnapshot(snapshot);
+  } catch (error) {
+    handleBackgroundFailure(error, "Die Preisalarme konnten gerade nicht aktualisiert werden.");
+  } finally {
+    backgroundBusy = false;
+    render();
+  }
+}
+
+async function disableBackgroundMonitoring() {
+  if (!state.background?.enabled || backgroundBusy) return;
+  if (!confirm("Hintergrundüberwachung und serverseitige Alarmdaten wirklich löschen? Deine lokale Sammlung bleibt erhalten.")) return;
+  backgroundBusy = true;
+  renderAlerts();
+  try {
+    await backgroundRequest("/api/devices/delete", { method: "POST", body: {} });
+  } catch (error) {
+    if (error?.status !== 401 && error?.status !== 404) {
+      handleBackgroundFailure(error, "Die serverseitigen Alarmdaten konnten gerade nicht gelöscht werden.");
+      backgroundBusy = false;
+      render();
+      return;
+    }
+  }
+  state.background = emptyBackgroundState();
+  backgroundBusy = false;
+  backgroundError = "";
+  persistState();
+  render();
+  showToast("Hintergrundüberwachung gelöscht");
 }
 
 function colorFor(item, selected = "Automatisch") {
@@ -692,6 +1111,7 @@ function render() {
   renderSeriesDashboard();
   renderCatalog();
   renderMonitor();
+  renderAlerts();
   renderWishlist();
   renderDeals();
   renderPriceHistory();
@@ -705,6 +1125,12 @@ function renderStats() {
   document.querySelector("#totalMissing").textContent = progress.missing;
   document.querySelector("#totalWishlist").textContent = state.wishlist.length;
   document.querySelector("#totalMonitored").textContent = compactMoney(metrics.estimateTotal);
+  const unreadAlerts = state.background?.alerts?.filter(alert => !alert.readAt).length || 0;
+  const alertBadge = document.querySelector("#alertTabBadge");
+  if (alertBadge) {
+    alertBadge.textContent = unreadAlerts ? String(unreadAlerts) : "";
+    alertBadge.hidden = unreadAlerts === 0;
+  }
   document.querySelector("#collectionProgressRing")?.style.setProperty("--progress", `${metrics.percent * 3.6}deg`);
   if (document.querySelector("#collectionProgressPercent")) {
     document.querySelector("#collectionProgressPercent").textContent = `${metrics.percent} %`;
@@ -940,6 +1366,9 @@ function renderMonitor() {
     } else if (observation?.checkedAt) {
       detail = `Kein eindeutig passendes lieferbares Angebot · geprüft ${dateLabel(observation.checkedAt)}`;
     }
+    if (knownMoney(state.background.priceLimits[item.key])) {
+      detail += ` · Preisgrenze ${money(state.background.priceLimits[item.key])}`;
+    }
     return `
       <article class="cartridge monitor-card ${observationIsFresh(observation) ? "is-fresh" : ""}">
         ${itemHeader(item)}
@@ -957,6 +1386,132 @@ function renderMonitor() {
       </article>
     `;
   }).join("");
+}
+
+function renderAlerts() {
+  const target = document.querySelector("#alertsContent");
+  if (!target) return;
+  const background = state.background || emptyBackgroundState();
+  if (!background.enabled) {
+    target.innerHTML = `
+      <article class="automation-card">
+        <span class="automation-icon" aria-hidden="true">⏱</span>
+        <div>
+          <p class="eyebrow">Einmalig aktivieren</p>
+          <h3>Preischecks bei geschlossener App</h3>
+          <p class="muted">Der Dienst speichert nur deine fehlenden Cartridges, Wunschlisten-Prioritäten und Preisgrenzen unter einer zufälligen Gerätekennung. Namen, E-Mail-Adressen und Kaufnotizen werden nicht übertragen.</p>
+        </div>
+        <button class="primary-button full-width" data-action="enable-background" ${backgroundBusy ? "disabled" : ""}>
+          ${backgroundBusy ? "Wird aktiviert …" : "Hintergrundüberwachung aktivieren"}
+        </button>
+        ${backgroundError ? `<p class="monitor-status is-error">${escapeHtml(backgroundError)}</p>` : ""}
+      </article>
+    `;
+    return;
+  }
+
+  const unread = background.alerts.filter(alert => !alert.readAt).length;
+  const automationMarkup = background.automationUrl
+    ? `
+      <p class="muted compact">Kopiere diesen privaten Link einmal in den Chat. Danach kann ChatGPT stündlich nach Preisalarmen schauen und sonntags um 21 Uhr die Kaufempfehlung senden.</p>
+      <label class="automation-link-label">
+        Verknüpfungslink
+        <input id="automationUrl" type="text" readonly value="${escapeHtml(background.automationUrl)}">
+      </label>
+      <div class="automation-actions">
+        <button class="primary-button" data-action="copy-automation">Link kopieren</button>
+        <button class="secondary-button" data-action="rotate-automation">Neuen Link erzeugen</button>
+      </div>
+    `
+    : `
+      <p class="muted compact">Erzeuge einen privaten Verknüpfungslink und sende ihn einmal in den Chat. Ohne diesen letzten Schritt kann ChatGPT noch keine Meldungen zustellen.</p>
+      <button class="primary-button full-width" data-action="create-automation">Verknüpfungslink erzeugen</button>
+    `;
+  const alertsMarkup = background.alerts.length
+    ? background.alerts.map(alert => {
+      const item = catalogByKey.get(alert.key);
+      const icon = {
+        price_limit: "◎",
+        price_drop: "↓",
+        back_in_stock: "↺",
+        new_best: "★"
+      }[alert.type] || "!";
+      return `
+        <article class="alert-card ${alert.readAt ? "is-read" : "is-unread"}">
+          <span class="alert-icon" aria-hidden="true">${icon}</span>
+          <div>
+            <p class="alert-title">${escapeHtml(alert.title)}</p>
+            <p class="muted compact">${escapeHtml(alert.message)}</p>
+            <small>${item ? `${seriesLabel(item.series)} · #${String(item.number).padStart(2, "0")} · ` : ""}${dateLabel(alert.createdAt)}</small>
+          </div>
+          ${alert.url ? `<a class="secondary-button link-button" href="${escapeHtml(alert.url)}" target="_blank" rel="noopener">Angebot</a>` : ""}
+        </article>
+      `;
+    }).join("")
+    : '<p class="empty">Noch keine Preisalarme. Nach dem ersten Hintergrund-Check erscheinen Preisgrenzen, Preisstürze, neue Bestpreise und wieder verfügbare Titel hier.</p>';
+  const sourcesMarkup = background.sourceStatus.length
+    ? background.sourceStatus.map(source => `
+      <div class="source-status-row">
+        <span class="source-status-dot is-${source.status === "ok" ? "ok" : "error"}"></span>
+        <div>
+          <strong>${escapeHtml(source.name)}</strong>
+          <small>${source.status === "ok" ? "Erfolgreich geprüft" : "Beim letzten Lauf nicht erreichbar"} · ${dateLabel(source.checkedAt)}${source.lastSuccessAt && source.status !== "ok" ? ` · zuletzt erfolgreich ${dateLabel(source.lastSuccessAt)}` : ""}</small>
+        </div>
+        <span>${source.accepted} Treffer</span>
+      </div>
+    `).join("")
+    : '<p class="empty">Der Quellenstatus erscheint nach dem ersten Hintergrund-Check.</p>';
+
+  target.innerHTML = `
+    ${backgroundError ? `<p class="monitor-status is-error">${escapeHtml(backgroundError)}</p>` : ""}
+    <div class="background-status-grid">
+      <article>
+        <span>Status</span>
+        <strong>${backgroundBusy ? "Arbeitet …" : "Aktiv"}</strong>
+      </article>
+      <article>
+        <span>Überwacht</span>
+        <strong>${missingItems().length}</strong>
+      </article>
+      <article>
+        <span>Neue Alarme</span>
+        <strong>${unread}</strong>
+      </article>
+      <article>
+        <span>Letzter Check</span>
+        <strong>${background.lastScannedAt ? dateLabel(background.lastScannedAt) : "offen"}</strong>
+      </article>
+    </div>
+    <div class="automation-actions">
+      <button class="primary-button" data-action="background-scan" ${backgroundBusy ? "disabled" : ""}>Jetzt serverseitig prüfen</button>
+      <button class="secondary-button" data-action="background-refresh" ${backgroundBusy ? "disabled" : ""}>Status aktualisieren</button>
+    </div>
+    <article class="automation-card is-linked">
+      <span class="automation-icon" aria-hidden="true">🔔</span>
+      <div>
+        <p class="eyebrow">ChatGPT-Benachrichtigungen</p>
+        <h3>Stündliche Alarme & Sonntagsempfehlung</h3>
+      </div>
+      ${automationMarkup}
+    </article>
+    <div class="section-heading alert-heading">
+      <div>
+        <p class="eyebrow">Posteingang</p>
+        <h3>Preisalarme</h3>
+      </div>
+      ${unread ? `<button class="text-button" data-action="read-alerts">Alle gelesen</button>` : ""}
+    </div>
+    <div class="alert-list">${alertsMarkup}</div>
+    <div class="section-heading source-heading">
+      <div>
+        <p class="eyebrow">Technischer Status</p>
+        <h3>Automatische Bezugsquellen</h3>
+      </div>
+      <span class="badge">9 automatisch</span>
+    </div>
+    <div class="source-status-list">${sourcesMarkup}</div>
+    <button class="text-danger background-delete" data-action="disable-background" ${backgroundBusy ? "disabled" : ""}>Hintergrundüberwachung und Serverdaten löschen</button>
+  `;
 }
 
 function renderWishlist() {
@@ -1145,7 +1700,14 @@ function openDetail(key) {
   document.querySelector("#detailPrice").value = knownMoney(owned?.price) ? owned.price : "";
   document.querySelector("#detailNotes").value = owned?.notes || "";
   document.querySelector("#detailOwnedFields").hidden = !owned;
-  document.querySelector("#saveDetailButton").hidden = !owned;
+  document.querySelector("#detailPriceLimitFields").hidden = Boolean(owned);
+  document.querySelector("#detailPriceLimit").value = !owned && knownMoney(state.background.priceLimits[key])
+    ? state.background.priceLimits[key]
+    : "";
+  document.querySelector("#saveDetailButton").hidden = false;
+  document.querySelector("#saveDetailButton").textContent = owned
+    ? "Details speichern"
+    : "Preisgrenze speichern";
   document.querySelector("#detailOwnedButton").textContent = owned
     ? "Aus Sammlung entfernen"
     : "Zur Sammlung hinzufügen";
@@ -1183,6 +1745,7 @@ function toggleOwned(key) {
     state.owned.push({ key, condition: "Geöffnet", price: null, notes: "" });
     state.wishlist = state.wishlist.filter(entry => entry !== key);
     state.monitor.pendingKeys = state.monitor.pendingKeys.filter(entry => entry !== key);
+    delete state.background.priceLimits[key];
     showToast("Zur Sammlung hinzugefügt");
   }
   saveState();
@@ -1263,6 +1826,18 @@ document.body.addEventListener("click", event => {
   if (action === "toggle-wish") toggleWish(key);
   if (action === "open-detail") openDetail(key);
   if (action === "save-live-deal") saveLiveOffer(id);
+  if (action === "enable-background") enableBackgroundMonitoring();
+  if (action === "background-scan") runBackgroundScan();
+  if (action === "background-refresh") refreshBackgroundStatus({ silent: false });
+  if (action === "create-automation") createAutomationLink();
+  if (action === "copy-automation") copyAutomationLink();
+  if (action === "rotate-automation") {
+    if (confirm("Der bisherige Verknüpfungslink wird dadurch ungültig. Neuen Link erzeugen?")) {
+      createAutomationLink();
+    }
+  }
+  if (action === "read-alerts") markAlertsRead();
+  if (action === "disable-background") disableBackgroundMonitoring();
   if (action === "search-missing" && catalogByKey.has(key)) {
     openDealSearchFor(key);
   }
@@ -1319,7 +1894,21 @@ document.querySelector("#detailDealButton").addEventListener("click", () => {
 document.querySelector("#detailForm").addEventListener("submit", event => {
   event.preventDefault();
   const owned = state.owned.find(entry => entry.key === activeDetailKey);
-  if (!owned) return;
+  if (!owned) {
+    const limitText = document.querySelector("#detailPriceLimit").value;
+    const limit = limitText === "" ? null : Number(limitText);
+    if (limit != null && (!Number.isFinite(limit) || limit < 0 || limit > 500)) {
+      alert("Bitte eine Preisgrenze zwischen 0 und 500 Euro eingeben.");
+      return;
+    }
+    if (limit == null) delete state.background.priceLimits[activeDetailKey];
+    else state.background.priceLimits[activeDetailKey] = Math.round(limit * 100) / 100;
+    saveState();
+    render();
+    openDetail(activeDetailKey);
+    showToast(limit == null ? "Preisgrenze entfernt" : "Preisgrenze gespeichert");
+    return;
+  }
   const priceText = document.querySelector("#detailPrice").value;
   const price = priceText === "" ? null : Number(priceText);
   if (price != null && (!Number.isFinite(price) || price < 0)) {
@@ -1760,11 +2349,19 @@ document.querySelector("#dealForm").addEventListener("submit", event => {
 });
 
 document.querySelector("#exportButton").addEventListener("click", () => {
+  const exportData = structuredClone(state);
+  exportData.background = {
+    ...emptyBackgroundState(),
+    priceLimits: structuredClone(state.background.priceLimits),
+    alerts: structuredClone(state.background.alerts),
+    sourceStatus: structuredClone(state.background.sourceStatus),
+    recommendation: structuredClone(state.background.recommendation)
+  };
   const backup = {
     app: "Project Evercade",
-    version: "0.6",
+    version: "0.7",
     exportedAt: new Date().toISOString(),
-    data: state
+    data: exportData
   };
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -1797,14 +2394,23 @@ document.querySelector("#importInput").addEventListener("change", async event =>
   }
 });
 
-document.querySelector("#resetButton").addEventListener("click", () => {
+document.querySelector("#resetButton").addEventListener("click", async () => {
   if (!confirm("Sammlung, Wunschliste und Deals wirklich auf den Ausgangsstand zurücksetzen?")) return;
+  if (state.background?.enabled) {
+    try {
+      await backgroundRequest("/api/devices/delete", { method: "POST", body: {} });
+    } catch {
+      alert("Die serverseitigen Alarmdaten konnten gerade nicht gelöscht werden. Der Reset wurde abgebrochen; bitte später erneut versuchen.");
+      return;
+    }
+  }
   state = {
-    version: 6,
+    version: 7,
     owned: structuredClone(defaultOwned),
     wishlist: [],
     deals: [],
-    monitor: emptyMonitorState()
+    monitor: emptyMonitorState(),
+    background: emptyBackgroundState()
   };
   saveState();
   dataDialog.close();
@@ -1819,5 +2425,8 @@ const lastWeeklyRun = new Date(state.monitor.lastCompletedAt || 0).getTime();
 const weeklyRunDue = !Number.isFinite(lastWeeklyRun) ||
   lastWeeklyRun < Date.now() - 7 * 24 * 60 * 60 * 1000;
 if (new Date().getDay() === 0 && weeklyRunDue && missingItems().length) {
-  setTimeout(() => runMonitoring(), 900);
+  if (!state.background.enabled) setTimeout(() => runMonitoring(), 900);
+}
+if (state.background.enabled) {
+  setTimeout(() => refreshBackgroundStatus({ silent: true }), 700);
 }

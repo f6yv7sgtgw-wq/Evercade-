@@ -7,15 +7,15 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Project Evercade</title>
-  <link rel="manifest" href="manifest.json?v=0.6.0" />
-  <link rel="stylesheet" href="styles.css?v=0.6.0" />
+  <link rel="manifest" href="manifest.json?v=0.7.0" />
+  <link rel="stylesheet" href="styles.css?v=0.7.0" />
 </head>
 <body>
   <header class="app-header">
     <div>
-      <p class="eyebrow">Version 0.6</p>
+      <p class="eyebrow">Version 0.7</p>
       <h1>Project Evercade</h1>
-      <p class="subtitle">Sammlungs-Dashboard, Preiswächter & Deals</p>
+      <p class="subtitle">Sammlungs-Dashboard, Preisalarme & Deals</p>
     </div>
     <button id="openDataDialog" class="icon-button" title="Daten sichern und wiederherstellen" aria-label="Daten verwalten">•••</button>
   </header>
@@ -57,6 +57,7 @@
       <button class="tab active" data-view="collection">Dashboard</button>
       <button class="tab" data-view="catalog">Katalog</button>
       <button class="tab" data-view="monitor">Monitor</button>
+      <button class="tab alert-tab" data-view="alerts">Alarme <span id="alertTabBadge" class="tab-badge" hidden></span></button>
       <button class="tab" data-view="wishlist">Wunschliste</button>
       <button class="tab" data-view="deals">Deals</button>
     </nav>
@@ -188,6 +189,18 @@
         </select>
       </label>
       <div id="monitorList" class="card-list"></div>
+    </section>
+
+    <section id="alertsView" class="view panel alerts-panel" hidden>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Version 0.7</p>
+          <h2>Preisalarme & Automatik</h2>
+        </div>
+        <span class="badge">Sonntag 21 Uhr</span>
+      </div>
+      <p class="muted compact">Nach der einmaligen Verknüpfung werden alle fehlenden Cartridges serverseitig überwacht. Gleiche, unveränderte Angebote lösen keinen zweiten Alarm aus.</p>
+      <div id="alertsContent"></div>
     </section>
 
     <section id="wishlistView" class="view panel" hidden>
@@ -387,6 +400,14 @@
             <textarea id="detailNotes" rows="4" maxlength="1200" placeholder="Händler, Kaufdatum oder Besonderheiten …"></textarea>
           </label>
         </div>
+        <div id="detailPriceLimitFields" hidden>
+          <h3>Preisalarm</h3>
+          <label>
+            Maximaler Gesamtpreis inklusive Versand €
+            <input id="detailPriceLimit" type="number" min="0" max="500" step="0.01" inputmode="decimal" placeholder="z. B. 24,99" />
+          </label>
+          <p class="muted compact">Sobald ein automatisch geprüftes Angebot diese Grenze erreicht, wird ein Preisalarm erzeugt. Leerlassen entfernt die Grenze.</p>
+        </div>
         <button id="saveDetailButton" class="primary-button full-width" type="submit">Details speichern</button>
       </form>
       <div class="detail-history-heading">
@@ -418,7 +439,7 @@
         <h2>Daten verwalten</h2>
         <button type="button" class="icon-button close-dialog" aria-label="Schließen">✕</button>
       </div>
-      <p class="muted">Exportiere regelmäßig eine Sicherung. Sie enthält Sammlung, Wunschliste, Deals und Preisbeobachtungen.</p>
+      <p class="muted">Exportiere regelmäßig eine Sicherung. Sie enthält Sammlung, Wunschliste, Deals, Preisbeobachtungen und Preisgrenzen. Private Geräte- und Automationsschlüssel werden nicht exportiert.</p>
       <button id="exportButton" class="primary-button full-width">Sicherung exportieren</button>
       <label class="file-button">
         Sicherung importieren
@@ -429,6 +450,6 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=0.6.0"></script>
+  <script src="app.js?v=0.7.0"></script>
 </body>
 </html>

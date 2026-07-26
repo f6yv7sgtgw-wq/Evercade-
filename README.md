@@ -1,43 +1,57 @@
-# Project Evercade – Version 0.6
+# Project Evercade – Version 0.7
 
-Eine für iPhone und Desktop optimierte Web-App zur Verwaltung der persönlichen Evercade-Sammlung, zur Überwachung fehlender Cartridges und zur Suche nach günstigen Angeboten.
+Eine für iPhone und Desktop optimierte Web-App zur Verwaltung der persönlichen Evercade-Sammlung, zur Überwachung aller fehlenden Cartridges und zur Suche nach günstigen Angeboten.
 
-## Neu in Version 0.6
+## Neu in Version 0.7
 
-- visuelles Sammlungs-Dashboard mit Fortschritt in Prozent
-- Fortschritt getrennt nach roten Console-, violetten Arcade- und blauen Home-Computer-Cartridges
-- Coverbilder im Katalog, in der Sammlung, im Preiswächter und in der Detailansicht
-- robuste grafische Ersatzcover, falls ein externes Cover nicht geladen werden kann
-- Schätzwert der Sammlung aus beobachteten Marktpreisen, gespeicherten Deals und Kaufpreisen
-- getrennte Anzeige der tatsächlich erfassten Kaufpreise
-- Katalogfilter für vorhanden, fehlend, Wunschliste, Legacy und angekündigt
-- Sortierung nach Nummer, Name, Preis und Legacy/Seltenheit
-- Detailansicht je Cartridge mit Zustand, Kaufpreis, Notizen und Preisverlauf
-- direkter Wechsel von einer fehlenden Cartridge zur aktuellen Dealsuche
-- automatische Übernahme aller lokalen Daten aus Version 0.5
+- anonyme, serverseitige Überwachung aller fehlenden Cartridges
+- Preischecks können nach der ChatGPT-Verknüpfung auch bei geschlossener App ausgelöst werden
+- Preisgrenze je fehlender Cartridge in der Detailansicht
+- Alarm bei erreichter Preisgrenze
+- Alarm bei einem deutlichen Preissturz
+- Alarm bei einem neuen beobachteten Bestpreis
+- Alarm, wenn eine zuvor nicht verfügbare Cartridge wieder angeboten wird
+- Alarm-Posteingang direkt in der App
+- keine wiederholte Meldung desselben unveränderten Angebots
+- sonntägliche Kaufempfehlung für 21:00 Uhr vorbereitet
+- Anzeige, wann jede automatische Bezugsquelle zuletzt erfolgreich geprüft wurde
+- private Einmal-Verknüpfung mit ChatGPT
+- automatische Übernahme aller lokalen Daten aus Version 0.6
 
-## Berechnung des Sammlungswerts
+## Einmalige Aktivierung
 
-Für jede vorhandene Cartridge verwendet die App in dieser Reihenfolge:
+1. In der App den Bereich **Alarme** öffnen.
+2. **Hintergrundüberwachung aktivieren** wählen.
+3. Den erzeugten privaten Verknüpfungslink kopieren.
+4. Den Link einmal im Chat senden.
 
-1. den aktuellsten vollständigen Preis aus dem Preiswächter,
-2. den letzten Eintrag aus dem Preisverlauf,
-3. den günstigsten aktiven gespeicherten Deal,
-4. ersatzweise den eigenen Kaufpreis.
+Danach kann ChatGPT stündlich nach neuen Preisalarmen schauen und sonntags um 21:00 Uhr eine konkrete Kaufempfehlung liefern. Ohne diesen letzten Verknüpfungsschritt funktionieren weiterhin alle lokalen Funktionen und manuellen Preischecks, aber es gibt noch keine Meldung bei geschlossener App.
 
-Die Abdeckung wird direkt neben dem Schätzwert angezeigt. Cartridges ohne irgendeinen Preiswert werden nicht heimlich mit einem Pauschalpreis angesetzt.
+Der Link besitzt keine Schreibberechtigung für die Sammlung. Ein neu erzeugter Link macht den alten ungültig.
 
-## Katalog und Cover
+## Datenschutz
 
-Der Katalogstand umfasst 87 nummerierte, veröffentlichte oder konkret angekündigte Cartridges (Stand 24. Juli 2026). Visco Arcade 1, Visco Arcade 2 und das Banjo-Kazooie Double Pack sind als angekündigt gekennzeichnet. Der bislang unnummerierte DOOM-Teaser wird aufgenommen, sobald eine konkrete Cartridge-Nummer und Produktbezeichnung feststehen.
+Serverseitig gespeichert werden nur:
 
-Cover werden über den kostenlosen öffentlichen Project-Evercade-Dienst geladen. Die App bleibt auch ohne Cover oder bei einer unterbrochenen Verbindung vollständig bedienbar; in diesem Fall erscheint ein farbcodiertes Ersatzcover.
+- zufällige Gerätekennung
+- fehlende Cartridge-Schlüssel, Titel, Reihe und Nummer
+- Wunschlisten-Priorität
+- optionale Preisgrenzen
+- gefundene Angebote, Quellenstatus und erzeugte Alarme
 
-## Preisüberwachung
+Nicht übertragen werden Name, E-Mail-Adresse, vorhandene Cartridges, Kaufpreise, Kaufnotizen oder manuell gespeicherte Deals. Die serverseitigen Daten können im Bereich **Alarme** vollständig gelöscht werden. Geräte- und Automationsschlüssel werden nicht in Datensicherungen exportiert.
 
-Ein vollständiger Lauf prüft den Katalog abzüglich deiner Sammlung. Wunschlisten-Titel werden zuerst bearbeitet. Ergebnisse werden nach jedem Stapel lokal gespeichert, sodass ein unterbrochener Lauf später fortgesetzt werden kann.
+## Alarmregeln
 
-Die Kaufempfehlung berücksichtigt ausschließlich fehlende Cartridges mit bekanntem Gesamtpreis. Lieferbare Angebote stehen vor Vorbestellungen; Preis, Wunschliste, Legacy-Status und niedrige Katalognummer werden in der Empfehlung gewichtet.
+- Preisgrenzen beziehen sich auf den bekannten Gesamtpreis inklusive Versand.
+- Ein Preissturz wird ab mindestens 2,00 € und zugleich mindestens 10 % gegenüber dem vorherigen Check erkannt.
+- Ein neuer Bestpreis wird erst nach einer vorherigen Vergleichsbeobachtung gemeldet.
+- Beim ersten Check wird nicht für jedes lieferbare Angebot ein Alarm erzeugt; eine bereits erreichte persönliche Preisgrenze kann sofort melden.
+- Der Duplikatschutz berücksichtigt Alarmtyp, Cartridge, Angebotslink und Gesamtpreis.
+
+## Kaufempfehlung
+
+Empfohlen werden ausschließlich fehlende Cartridges mit einem lieferbaren Angebot und bekanntem Gesamtpreis. Gewichtet werden Gesamtpreis, Wunschliste, Legacy-Status und niedrige Katalognummer. Der direkte Angebotslink wird mitgeliefert.
 
 ## Bezugsquellen
 
@@ -56,9 +70,9 @@ Es wird kein kostenpflichtiger Such- oder Crawlerdienst verwendet. Quellen ohne 
 - Ein Gesamtpreis wird nur verwendet, wenn Preis und Versand rechnerisch zusammenpassen.
 - Angebote mit unbekanntem Versand werden nicht als günstigster Gesamtpreis gewertet.
 - Direkte Links müssen auf konkrete Händlerangebote führen.
-- Ein Stapelergebnis wird nur übernommen, wenn Titel, Reihe und Nummer mit der angeforderten Cartridge übereinstimmen.
+- Gleichlautende Collection-Nummern verschiedener Hersteller werden nicht verwechselt.
 
-## Update von Version 0.5
+## Update von Version 0.6
 
 Alle fünf Dateien im Hauptverzeichnis des GitHub-Repositorys durch die Dateien aus diesem Paket ersetzen:
 
@@ -68,12 +82,8 @@ Alle fünf Dateien im Hauptverzeichnis des GitHub-Repositorys durch die Dateien 
 - `manifest.json`
 - `README.md`
 
-Sammlung, Wunschliste, gespeicherte Deals, Notizen und Preisverläufe bleiben auf demselben Gerät und im selben Browser erhalten. Version 0.6 liest den lokalen Speicher von Version 0.5 beim ersten Start ein und schreibt ihn in das neue Datenformat.
+Sammlung, Wunschliste, gespeicherte Deals, Notizen und Preisverläufe bleiben erhalten. Version 0.7 liest den lokalen Speicher von Version 0.6 beim ersten Start ein und schreibt ihn in das neue Datenformat.
 
 ## Datensicherung
 
-Über `•••` lässt sich eine JSON-Sicherung exportieren und später wieder importieren. Die Sicherung enthält Sammlung, Zustände, Kaufpreise, Notizen, Wunschliste, Deals, Überwachungsfortschritt und Preisverläufe.
-
-## Technischer Hinweis
-
-GitHub Pages arbeitet nicht weiter, wenn die Homescreen-App vollständig geschlossen ist. Ein fälliger sonntäglicher Wochencheck startet deshalb beim nächsten Öffnen der App. Während eines vollständigen Preischecks muss die App geöffnet bleiben.
+Über `•••` lässt sich eine JSON-Sicherung exportieren und später wieder importieren. Sie enthält Sammlung, Zustände, Kaufpreise, Notizen, Wunschliste, Deals, Überwachungsfortschritt, Preisverläufe und Preisgrenzen. Private Verknüpfungsschlüssel werden bewusst ausgeschlossen.
