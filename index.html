@@ -3,35 +3,54 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#111114" />
+  <meta name="theme-color" content="#0b0d12" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Project Evercade</title>
-  <link rel="manifest" href="manifest.json?v=0.7.0" />
-  <link rel="stylesheet" href="styles.css?v=0.7.0" />
+  <link rel="manifest" href="manifest.json?v=0.71.0" />
+  <link rel="stylesheet" href="styles.css?v=0.71.0" />
 </head>
 <body>
   <header class="app-header">
-    <div>
-      <p class="eyebrow">Version 0.7</p>
-      <h1>Project Evercade</h1>
-      <p class="subtitle">Sammlungs-Dashboard, Preisalarme & Deals</p>
+    <div class="app-header-inner">
+      <div class="brand">
+        <div class="title-row">
+          <h1>Project Evercade</h1>
+          <span class="version-badge">Version 0.71</span>
+        </div>
+        <p class="subtitle">Sammlung, Preise &amp; Alarme</p>
+      </div>
+      <div class="header-actions">
+        <button id="openAddDialog" class="primary-button header-add-button">
+          <span class="wide-label">Cartridge hinzufügen</span>
+          <span class="short-label">+ Hinzufügen</span>
+        </button>
+        <button id="openDataDialog" class="icon-button" title="Daten sichern und wiederherstellen" aria-label="Daten verwalten">•••</button>
+      </div>
     </div>
-    <button id="openDataDialog" class="icon-button" title="Daten sichern und wiederherstellen" aria-label="Daten verwalten">•••</button>
   </header>
+
+  <nav class="tabs" aria-label="Bereiche">
+    <button class="tab active" data-view="collection">Sammlung</button>
+    <button class="tab" data-view="catalog">Katalog</button>
+    <button class="tab" data-view="monitor">Fehlend</button>
+    <button class="tab alert-tab" data-view="alerts">Alarme <span id="alertTabBadge" class="tab-badge" hidden></span></button>
+    <button class="tab" data-view="wishlist">Wünsche</button>
+    <button class="tab" data-view="deals">Deals</button>
+  </nav>
 
   <main>
     <section class="stats-grid" aria-label="Sammlungsübersicht">
       <article class="stat-card">
-        <span class="stat-label">Fortschritt</span>
+        <span class="stat-label">Sammlung</span>
         <strong id="totalOwned">0</strong>
       </article>
-      <article class="stat-card wishlist-stat">
+      <article class="stat-card">
         <span class="stat-label">Fehlend</span>
         <strong id="totalMissing">0</strong>
       </article>
-      <article class="stat-card deal-stat">
-        <span class="stat-label">Wünsche</span>
+      <article class="stat-card">
+        <span class="stat-label">Wunschliste</span>
         <strong id="totalWishlist">0</strong>
       </article>
       <article class="stat-card">
@@ -40,43 +59,22 @@
       </article>
     </section>
 
-    <section id="bestDealPanel" class="panel deal-panel">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Kaufempfehlung</p>
-          <h2 id="bestDealTitle">Überwachung starten</h2>
-        </div>
-        <span class="badge">inkl. Versand</span>
-      </div>
-      <div id="bestDealContent">
-        <p class="muted">Prüfe alle fehlenden Cartridges. Das beste verfügbare Angebot erscheint anschließend automatisch hier.</p>
-      </div>
-    </section>
-
-    <nav class="tabs" aria-label="Bereiche">
-      <button class="tab active" data-view="collection">Dashboard</button>
-      <button class="tab" data-view="catalog">Katalog</button>
-      <button class="tab" data-view="monitor">Monitor</button>
-      <button class="tab alert-tab" data-view="alerts">Alarme <span id="alertTabBadge" class="tab-badge" hidden></span></button>
-      <button class="tab" data-view="wishlist">Wunschliste</button>
-      <button class="tab" data-view="deals">Deals</button>
-    </nav>
-
-    <section id="collectionView" class="view panel">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Meine Sammlung</p>
-          <h2>Sammlungs-Dashboard</h2>
-        </div>
-        <button id="openAddDialog" class="primary-button">+ Hinzufügen</button>
-      </div>
-      <div class="dashboard-overview">
-        <div id="collectionProgressRing" class="progress-ring" style="--progress:0deg">
+    <div class="dashboard-spotlights">
+      <section class="panel progress-panel" aria-labelledby="progressHeading">
+        <div class="section-heading">
           <div>
-            <strong id="collectionProgressPercent">0 %</strong>
-            <span id="collectionProgressText">0 von 87 Cartridges</span>
+            <p class="eyebrow">Dein Überblick</p>
+            <h2 id="progressHeading">Sammlungsfortschritt</h2>
+          </div>
+          <span id="collectionProgressText" class="badge">0 von 87 Cartridges</span>
+        </div>
+        <div class="progress-overview">
+          <strong id="collectionProgressPercent">0 %</strong>
+          <div id="collectionProgressRing" class="progress-ring" style="--progress:0%">
+            <span aria-hidden="true"></span>
           </div>
         </div>
+        <div id="seriesDashboard" class="series-dashboard"></div>
         <div class="value-grid">
           <article>
             <span>Erfasste Kaufpreise</span>
@@ -89,18 +87,33 @@
             <small id="estimateCoverage">0 Cartridges bewertet</small>
           </article>
         </div>
-      </div>
-      <div id="seriesDashboard" class="series-dashboard"></div>
-      <div class="dashboard-actions">
-        <button class="secondary-button" data-action="show-view" data-view="catalog">Fehlende im Katalog</button>
-        <button class="secondary-button" data-action="show-view" data-view="monitor">Preise aktualisieren</button>
-      </div>
+      </section>
+
+      <section id="bestDealPanel" class="panel deal-panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Aktueller Kauftipp</p>
+            <h2 id="bestDealTitle">Überwachung starten</h2>
+          </div>
+          <span class="badge">inkl. Versand</span>
+        </div>
+        <div id="bestDealContent">
+          <p class="muted">Prüfe alle fehlenden Cartridges. Das beste verfügbare Angebot erscheint anschließend automatisch hier.</p>
+        </div>
+      </section>
+    </div>
+
+    <section id="collectionView" class="view panel collection-panel">
       <div class="section-heading collection-heading">
         <div>
           <p class="eyebrow">Inventar</p>
-          <h3>Meine Cartridges</h3>
+          <h2>Meine Cartridges</h2>
         </div>
         <span id="ownedCount" class="badge"></span>
+      </div>
+      <div class="dashboard-actions">
+        <button class="secondary-button" data-action="show-view" data-view="catalog">Fehlende im Katalog</button>
+        <button class="secondary-button" data-action="show-view" data-view="monitor">Preise aktualisieren</button>
       </div>
       <div class="series-filters" data-filter-group="collection">
         <button class="filter active" data-filter="all">Alle</button>
@@ -194,7 +207,7 @@
     <section id="alertsView" class="view panel alerts-panel" hidden>
       <div class="section-heading">
         <div>
-          <p class="eyebrow">Version 0.7</p>
+          <p class="eyebrow">Version 0.71</p>
           <h2>Preisalarme & Automatik</h2>
         </div>
         <span class="badge">Sonntag 21 Uhr</span>
@@ -450,6 +463,6 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=0.7.0"></script>
+  <script src="app.js?v=0.71.0"></script>
 </body>
 </html>

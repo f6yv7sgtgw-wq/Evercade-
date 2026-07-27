@@ -1121,7 +1121,7 @@ function render() {
 function renderStats() {
   const progress = monitorProgress();
   const metrics = collectionMetrics();
-  document.querySelector("#totalOwned").textContent = `${metrics.percent} %`;
+  document.querySelector("#totalOwned").textContent = `${metrics.owned} / ${metrics.total}`;
   document.querySelector("#totalMissing").textContent = progress.missing;
   document.querySelector("#totalWishlist").textContent = state.wishlist.length;
   document.querySelector("#totalMonitored").textContent = compactMoney(metrics.estimateTotal);
@@ -1131,7 +1131,7 @@ function renderStats() {
     alertBadge.textContent = unreadAlerts ? String(unreadAlerts) : "";
     alertBadge.hidden = unreadAlerts === 0;
   }
-  document.querySelector("#collectionProgressRing")?.style.setProperty("--progress", `${metrics.percent * 3.6}deg`);
+  document.querySelector("#collectionProgressRing")?.style.setProperty("--progress", `${metrics.percent}%`);
   if (document.querySelector("#collectionProgressPercent")) {
     document.querySelector("#collectionProgressPercent").textContent = `${metrics.percent} %`;
     document.querySelector("#collectionProgressText").textContent =
@@ -1180,11 +1180,12 @@ function renderBestDeal() {
     title.textContent = item.title;
     content.innerHTML = `
       <div class="best-deal-row">
-        <div>
+        <div class="best-deal-copy">
           <strong class="deal-price">${money(offer.total)}</strong>
           <p class="muted compact">${escapeHtml(offer.source)} · ${escapeHtml(offer.condition)} · ${escapeHtml(reasons.join(" · "))}</p>
+          <a class="primary-button link-button" href="${escapeHtml(offer.url)}" target="_blank" rel="noopener">Deal ansehen <span aria-hidden="true">→</span></a>
         </div>
-        <a class="primary-button link-button" href="${escapeHtml(offer.url)}" target="_blank" rel="noopener">Zum Angebot</a>
+        ${coverMarkup(item, "deal")}
       </div>
     `;
     return;
@@ -1198,7 +1199,12 @@ function renderBestDeal() {
 
   if (!validDeals.length) {
     title.textContent = "Überwachung starten";
-    content.innerHTML = '<p class="muted">Prüfe unter „Monitor“ alle fehlenden Cartridges. Danach erscheint hier die beste Kaufempfehlung mit direktem Angebotslink.</p>';
+    content.innerHTML = `
+      <div class="empty-deal">
+        <p class="muted">Prüfe unter „Fehlend“ alle nicht vorhandenen Cartridges. Danach erscheint hier automatisch die beste Kaufempfehlung.</p>
+        <button class="secondary-button" data-action="show-view" data-view="monitor">Preisprüfung öffnen</button>
+      </div>
+    `;
     return;
   }
 
@@ -1209,11 +1215,12 @@ function renderBestDeal() {
   title.textContent = item.title;
   content.innerHTML = `
     <div class="best-deal-row">
-      <div>
+      <div class="best-deal-copy">
         <strong class="deal-price">${money(best.price + best.shipping)}</strong>
         <p class="muted compact">${escapeHtml(best.source)} · ${escapeHtml(best.condition)} · Preis ${money(best.price)} + Versand ${money(best.shipping)}</p>
+        <a class="primary-button link-button" href="${escapeHtml(best.url)}" target="_blank" rel="noopener">Deal ansehen <span aria-hidden="true">→</span></a>
       </div>
-      <a class="primary-button link-button" href="${escapeHtml(best.url)}" target="_blank" rel="noopener">Zum Angebot</a>
+      ${coverMarkup(item, "deal")}
     </div>
   `;
 }
@@ -1767,7 +1774,7 @@ function toggleWish(key) {
   if (activeDetailKey === key && document.querySelector("#detailDialog")?.open) openDetail(key);
 }
 
-function showView(name) {
+function showView(name, { scroll = false } = {}) {
   activeView = name;
   Object.entries(views).forEach(([key, element]) => {
     element.hidden = key !== name;
@@ -1775,6 +1782,9 @@ function showView(name) {
   document.querySelectorAll(".tab").forEach(tab => {
     tab.classList.toggle("active", tab.dataset.view === name);
   });
+  if (scroll) {
+    views[name]?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  }
 }
 
 let toastTimer;
@@ -1788,7 +1798,7 @@ function showToast(message) {
 
 document.querySelector(".tabs").addEventListener("click", event => {
   const tab = event.target.closest(".tab");
-  if (tab) showView(tab.dataset.view);
+  if (tab) showView(tab.dataset.view, { scroll: true });
 });
 
 document.querySelectorAll(".series-filters").forEach(group => {
@@ -1820,7 +1830,9 @@ document.body.addEventListener("click", event => {
   const button = event.target.closest("[data-action]");
   if (!button) return;
   const { action, key, id } = button.dataset;
-  if (action === "show-view" && button.dataset.view) showView(button.dataset.view);
+  if (action === "show-view" && button.dataset.view) {
+    showView(button.dataset.view, { scroll: true });
+  }
   if (action === "toggle-owned") toggleOwned(key);
   if (action === "remove-owned") toggleOwned(key);
   if (action === "toggle-wish") toggleWish(key);
@@ -2359,7 +2371,7 @@ document.querySelector("#exportButton").addEventListener("click", () => {
   };
   const backup = {
     app: "Project Evercade",
-    version: "0.7",
+    version: "0.71",
     exportedAt: new Date().toISOString(),
     data: exportData
   };

@@ -1,8 +1,20 @@
-# Project Evercade – Version 0.7
+# Project Evercade – Version 0.71
 
 Eine für iPhone und Desktop optimierte Web-App zur Verwaltung der persönlichen Evercade-Sammlung, zur Überwachung aller fehlenden Cartridges und zur Suche nach günstigen Angeboten.
 
-## Neu in Version 0.7
+## Neu in Version 0.71
+
+- vollständiges UI-Makeover im dunklen Sammlervitrinen-Stil
+- größere Schriften und deutlich stärkere Kontraste
+- klar gegliederte Navigation mit verständlicheren Bereichsnamen
+- Sammlung, fehlende Titel, Wunschliste und Schätzwert sofort sichtbar
+- Sammlungsfortschritt als große Prozentanzeige mit gut lesbarem Balken
+- Kaufempfehlung als eigene hervorgehobene Karte mit Cover und Direktlink
+- ruhigere Sammlungslisten, größere Touch-Ziele und verbesserte Formulare
+- zwei Spalten auf großen Bildschirmen und lesbare Einspaltenansicht auf dem iPhone
+- alle Funktionen, Alarme und lokalen Daten aus Version 0.7 bleiben unverändert erhalten
+
+## Enthaltene Funktionen aus Version 0.7
 
 - anonyme, serverseitige Überwachung aller fehlenden Cartridges
 - Preischecks können nach der ChatGPT-Verknüpfung auch bei geschlossener App ausgelöst werden
@@ -72,7 +84,7 @@ Es wird kein kostenpflichtiger Such- oder Crawlerdienst verwendet. Quellen ohne 
 - Direkte Links müssen auf konkrete Händlerangebote führen.
 - Gleichlautende Collection-Nummern verschiedener Hersteller werden nicht verwechselt.
 
-## Update von Version 0.6
+## Update von Version 0.7
 
 Alle fünf Dateien im Hauptverzeichnis des GitHub-Repositorys durch die Dateien aus diesem Paket ersetzen:
 
@@ -82,7 +94,7 @@ Alle fünf Dateien im Hauptverzeichnis des GitHub-Repositorys durch die Dateien 
 - `manifest.json`
 - `README.md`
 
-Sammlung, Wunschliste, gespeicherte Deals, Notizen und Preisverläufe bleiben erhalten. Version 0.7 liest den lokalen Speicher von Version 0.6 beim ersten Start ein und schreibt ihn in das neue Datenformat.
+Sammlung, Wunschliste, gespeicherte Deals, Notizen, Preisverläufe, Preisgrenzen und die aktive Alarmverknüpfung bleiben erhalten. Version 0.71 verwendet bewusst denselben lokalen Datenspeicher wie Version 0.7.
 
 ## Datensicherung
 

@@ -5,7 +5,7 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0e0e10",
-  "theme_color": "#111114",
-  "description": "Evercade-Sammlungs-Dashboard mit serverseitigen Preisalarmen, Katalog und Deal-Suche"
+  "background_color": "#0b0d12",
+  "theme_color": "#0b0d12",
+  "description": "Gut lesbares Evercade-Sammlungs-Dashboard im Dunkelmodus mit Preisalarmen, Katalog und Deal-Suche"
 }
