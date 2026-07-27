@@ -2371,7 +2371,7 @@ document.querySelector("#exportButton").addEventListener("click", () => {
   };
   const backup = {
     app: "Project Evercade",
-    version: "0.71",
+    version: "0.71.1",
     exportedAt: new Date().toISOString(),
     data: exportData
   };

@@ -37,15 +37,22 @@ button, input, select, textarea { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button { cursor: pointer; }
 
+.sticky-shell {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(11, 13, 18, .94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
 .app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: calc(18px + env(safe-area-inset-top)) 18px 16px;
   border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 20;
+  position: static;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   background: rgba(14, 14, 16, .9);
@@ -452,9 +459,7 @@ main {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 5px;
-  position: sticky;
-  top: calc(84px + env(safe-area-inset-top));
-  z-index: 15;
+  position: static;
   padding: 5px;
   margin: 0 0 12px;
   border: 1px solid var(--border);

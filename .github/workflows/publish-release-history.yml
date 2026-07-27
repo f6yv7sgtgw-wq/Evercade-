@@ -1,0 +1,92 @@
+name: Publish release history
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/release-metadata.json
+      - .github/workflows/publish-release-history.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  releases:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out complete history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create tags, release notes and ZIP files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          while IFS= read -r release; do
+            version="$(jq -r '.version' <<<"$release")"
+            tag="$(jq -r '.tag' <<<"$release")"
+            target="$(jq -r '.target' <<<"$release")"
+            title="$(jq -r '.title' <<<"$release")"
+            notes="$(jq -r '.notes' <<<"$release")"
+
+            if [[ "$target" == "HEAD" ]]; then
+              target="$GITHUB_SHA"
+            fi
+
+            target="$(git rev-parse "${target}^{commit}")"
+
+            if git show-ref --tags --verify --quiet "refs/tags/$tag"; then
+              current="$(git rev-list -n 1 "$tag")"
+              if [[ "$current" != "$target" ]]; then
+                git tag --force "$tag" "$target"
+                git push origin "refs/tags/$tag" --force
+              fi
+            else
+              git tag "$tag" "$target"
+              git push origin "refs/tags/$tag"
+            fi
+
+            asset="Project-Evercade-v${version}.zip"
+            prefix="Project-Evercade-v${version}/"
+            git archive \
+              --format=zip \
+              --prefix="$prefix" \
+              --output="$asset" \
+              "$target" \
+              README.md app.js index.html manifest.json styles.css
+
+            checksum="$(sha256sum "$asset" | cut -d' ' -f1)"
+            notes_file="$(mktemp)"
+            printf '%s\n\n## Download\n\n- `%s`\n- SHA-256: `%s`\n' \
+              "$notes" "$asset" "$checksum" > "$notes_file"
+
+            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              gh release edit "$tag" \
+                --repo "$GITHUB_REPOSITORY" \
+                --title "$title" \
+                --notes-file "$notes_file"
+              gh release upload "$tag" "$asset" \
+                --repo "$GITHUB_REPOSITORY" \
+                --clobber
+            else
+              gh release create "$tag" "$asset" \
+                --repo "$GITHUB_REPOSITORY" \
+                --title "$title" \
+                --notes-file "$notes_file"
+            fi
+
+            rm "$notes_file" "$asset"
+          done < <(jq -c '.[]' .github/release-metadata.json)
+
+          gh release edit v0.71.1 \
+            --repo "$GITHUB_REPOSITORY" \
+            --latest

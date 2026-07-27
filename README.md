@@ -1,6 +1,12 @@
-# Project Evercade – Version 0.71
+# Project Evercade – Version 0.71.1
 
 Eine für iPhone und Desktop optimierte Web-App zur Verwaltung der persönlichen Evercade-Sammlung, zur Überwachung aller fehlenden Cartridges und zur Suche nach günstigen Angeboten.
+
+## Behoben in Version 0.71.1
+
+- Die Bereichsleiste bleibt auf dem iPhone auch nach dem Wechsel zu **Fehlend** dauerhaft sichtbar.
+- Der feststehende Kopfbereich und die horizontal scrollbaren Reiter sind technisch getrennt, damit iOS Safari die Sticky-Position nicht mehr verliert.
+- Neue Cache-Kennungen sorgen dafür, dass Browser die korrigierten Dateien direkt laden.
 
 ## Neu in Version 0.71
 
@@ -94,8 +100,12 @@ Alle fünf Dateien im Hauptverzeichnis des GitHub-Repositorys durch die Dateien 
 - `manifest.json`
 - `README.md`
 
-Sammlung, Wunschliste, gespeicherte Deals, Notizen, Preisverläufe, Preisgrenzen und die aktive Alarmverknüpfung bleiben erhalten. Version 0.71 verwendet bewusst denselben lokalen Datenspeicher wie Version 0.7.
+Sammlung, Wunschliste, gespeicherte Deals, Notizen, Preisverläufe, Preisgrenzen und die aktive Alarmverknüpfung bleiben erhalten. Version 0.71.1 verwendet bewusst denselben lokalen Datenspeicher wie Version 0.7.
 
 ## Datensicherung
 
 Über `•••` lässt sich eine JSON-Sicherung exportieren und später wieder importieren. Sie enthält Sammlung, Zustände, Kaufpreise, Notizen, Wunschliste, Deals, Überwachungsfortschritt, Preisverläufe und Preisgrenzen. Private Verknüpfungsschlüssel werden bewusst ausgeschlossen.
+
+## Versionshistorie
+
+Die GitHub-Releases enthalten für jede Version ab 0.1 einen eigenen Tag, vollständige Release Notes, ein ZIP-Paket und dessen SHA-256-Prüfsumme.

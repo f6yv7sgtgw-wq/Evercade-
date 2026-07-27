@@ -1,0 +1,65 @@
+[
+  {
+    "version": "0.1",
+    "tag": "v0.1.0",
+    "target": "57afb38fb8c3e35392dd6b89674875536f8254e1",
+    "title": "Project Evercade v0.1 – Sammlungsverwaltung",
+    "notes": "## Enthalten\n\n- Startbestand mit 7 Cartridges\n- Trennung nach Console, Arcade und Home Computer\n- Cartridges hinzufügen und entfernen\n- Zustand und optionalen Kaufpreis erfassen\n- lokale Speicherung im Browser\n- iPhone-optimiertes Layout und PWA-Grundgerüst"
+  },
+  {
+    "version": "0.2",
+    "tag": "v0.2.0",
+    "target": "e258bd5cff49778113db6ad7fb9caf8c14948f9e",
+    "title": "Project Evercade v0.2 – Katalog, Wunschliste & Deals",
+    "notes": "## Neu in Version 0.2\n\n- vollständiger Evercade-Katalog mit 87 Cartridges\n- Suche und Filter im Katalog\n- persönliche Wunschliste mit niedrigen Nummern zuerst\n- Deals mit Preis, Versand, Zustand, Farbe und Direktlink\n- Export und Import einer JSON-Sicherung\n- automatische Übernahme der Daten aus Version 0.1"
+  },
+  {
+    "version": "0.3",
+    "tag": "v0.3.0",
+    "target": "fb5c0220cd27287f26c7e812d6c51d2cd4e79156",
+    "title": "Project Evercade v0.3 – Deal-Suche & Preisverlauf",
+    "notes": "## Neu in Version 0.3\n\n- zentrale Deal-Suche für jede Cartridge\n- direkte Suchen bei eBay, Kleinanzeigen, Idealo, Google Shopping, Amazon und weiteren Händlern\n- automatische Erkennung der Quelle aus dem Angebotslink\n- Dealbewertung nach Gesamtpreis, Zustand, Anbieter und Quelle\n- Angebotsstatus aktiv, geprüft oder abgelaufen\n- Preisverlauf mit günstigstem und höchstem Gesamtpreis\n- automatische Übernahme der Daten aus Version 0.2"
+  },
+  {
+    "version": "0.4",
+    "tag": "v0.4.0",
+    "target": "ca74c7eee0b357f276825656271135507713aae0",
+    "title": "Project Evercade v0.4 – Automatische Dealsuche mit 21 Bezugsquellen",
+    "notes": "## Neu in Version 0.4\n\n- 21 Bezugsquellen integriert\n- automatische Live-Suche bei neun Händlern\n- zwölf gezielte Direktsuchen für technisch nicht frei auswertbare Quellen\n- Gesamtpreis inklusive ausgewiesener Versandkosten nach Deutschland\n- Prüfung von Lieferbarkeit, Zustand, Reihe, Nummer und Titel\n- Sortierung nach Lieferbarkeit und günstigstem Gesamtpreis\n- automatische Übernahme der Daten aus Version 0.3\n\nEs wird kein kostenpflichtiger Such- oder Crawlerdienst verwendet."
+  },
+  {
+    "version": "0.5",
+    "tag": "v0.5.0",
+    "target": "08664d1b3829b15c740931e9311745f985a3e1e4",
+    "title": "Project Evercade v0.5 – Überwachung aller fehlenden Cartridges",
+    "notes": "## Neu in Version 0.5\n\n- automatische Überwachung aller nicht vorhandenen Cartridges\n- Wunschlisten-Titel werden zuerst geprüft\n- ressourcenschonende Stapelverarbeitung mit fortsetzbarem Fortschritt\n- Kaufempfehlung nach Gesamtpreis, Wunschliste, Legacy-Status und Katalognummer\n- direkte Angebotslinks und Preisverlauf je Cartridge\n- Filter für Wunschliste, Angebote und noch nicht geprüfte Titel\n- sonntäglicher Wochencheck beim Öffnen der App\n- automatische Übernahme der Daten aus Version 0.4"
+  },
+  {
+    "version": "0.6",
+    "tag": "v0.6.0",
+    "target": "f51f1ef222667938cc5a4671e173693eccb974a3",
+    "title": "Project Evercade v0.6 – Sammlungs-Dashboard, Cover & Detailansicht",
+    "notes": "## Neu in Version 0.6\n\n- visuelles Sammlungs-Dashboard mit Gesamt- und Reihenfortschritt\n- Coverbilder mit robusten grafischen Ersatzcovern\n- geschätzter Sammlungswert und separat erfasste Kaufpreise\n- Katalogfilter und Sortierung nach Nummer, Name, Preis und Seltenheit\n- Detailansicht mit Zustand, Kaufpreis, Notizen und Preisverlauf\n- direkter Wechsel von einer fehlenden Cartridge zur Dealsuche\n- automatische Übernahme der Daten aus Version 0.5"
+  },
+  {
+    "version": "0.7",
+    "tag": "v0.7.0",
+    "target": "721d8725bef60872493a23b53f5df15c5e2d0839",
+    "title": "Project Evercade v0.7 – Preisalarme & automatische Kaufempfehlung",
+    "notes": "## Neu in Version 0.7\n\n- anonyme serverseitige Überwachung aller fehlenden Cartridges\n- Preischecks auch bei geschlossener App nach ChatGPT-Verknüpfung\n- persönliche Preisgrenzen und Alarm-Posteingang\n- Alarme bei Preisgrenze, Preissturz, neuem Bestpreis und Wiederverfügbarkeit\n- Duplikatschutz für unveränderte Angebote\n- sonntägliche Kaufempfehlung für 21:00 Uhr vorbereitet\n- Statusanzeige für alle automatischen Bezugsquellen\n- automatische Übernahme der Daten aus Version 0.6"
+  },
+  {
+    "version": "0.71",
+    "tag": "v0.71.0",
+    "target": "6a7e35af91d2fe841390ddeea1fb7d7f5c2c8c2e",
+    "title": "Project Evercade v0.71 – Dark-Mode-Makeover",
+    "notes": "## Neu in Version 0.71\n\n- vollständiges UI-Makeover im dunklen Sammlervitrinen-Stil\n- größere Schriften und deutlich stärkere Kontraste\n- klar gegliederte Navigation mit verständlicheren Bereichsnamen\n- Sammlung, fehlende Titel, Wunschliste und Schätzwert sofort sichtbar\n- Sammlungsfortschritt mit großer Prozentanzeige\n- hervorgehobene Kaufempfehlung mit Cover und Direktlink\n- größere Touch-Ziele und verbesserte Formulare\n- optimierte Einspaltenansicht auf dem iPhone\n- alle Funktionen und lokalen Daten aus Version 0.7 bleiben erhalten"
+  },
+  {
+    "version": "0.71.1",
+    "tag": "v0.71.1",
+    "target": "HEAD",
+    "title": "Project Evercade v0.71.1 – Fix für sichtbare Navigation",
+    "notes": "## Behoben in Version 0.71.1\n\n- Kopf und Bereichsleiste bleiben auf dem iPhone auch nach dem Wechsel zu **Fehlend** sichtbar\n- der feststehende Rahmen ist von der horizontal scrollbaren Reiterleiste getrennt\n- die problematische Sticky-/Overflow-Kombination in iOS Safari ist entfernt\n- neue Cache-Kennungen laden die korrigierten Dateien sofort\n- alle Funktionen und lokalen Daten aus Version 0.71 bleiben erhalten"
+  }
+]

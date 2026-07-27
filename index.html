@@ -7,37 +7,39 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Project Evercade</title>
-  <link rel="manifest" href="manifest.json?v=0.71.0" />
-  <link rel="stylesheet" href="styles.css?v=0.71.0" />
+  <link rel="manifest" href="manifest.json?v=0.71.1" />
+  <link rel="stylesheet" href="styles.css?v=0.71.1" />
 </head>
 <body>
-  <header class="app-header">
-    <div class="app-header-inner">
-      <div class="brand">
-        <div class="title-row">
-          <h1>Project Evercade</h1>
-          <span class="version-badge">Version 0.71</span>
+  <div class="sticky-shell">
+    <header class="app-header">
+      <div class="app-header-inner">
+        <div class="brand">
+          <div class="title-row">
+            <h1>Project Evercade</h1>
+            <span class="version-badge">Version 0.71.1</span>
+          </div>
+          <p class="subtitle">Sammlung, Preise &amp; Alarme</p>
         </div>
-        <p class="subtitle">Sammlung, Preise &amp; Alarme</p>
+        <div class="header-actions">
+          <button id="openAddDialog" class="primary-button header-add-button">
+            <span class="wide-label">Cartridge hinzufügen</span>
+            <span class="short-label">+ Hinzufügen</span>
+          </button>
+          <button id="openDataDialog" class="icon-button" title="Daten sichern und wiederherstellen" aria-label="Daten verwalten">•••</button>
+        </div>
       </div>
-      <div class="header-actions">
-        <button id="openAddDialog" class="primary-button header-add-button">
-          <span class="wide-label">Cartridge hinzufügen</span>
-          <span class="short-label">+ Hinzufügen</span>
-        </button>
-        <button id="openDataDialog" class="icon-button" title="Daten sichern und wiederherstellen" aria-label="Daten verwalten">•••</button>
-      </div>
-    </div>
-  </header>
+    </header>
 
-  <nav class="tabs" aria-label="Bereiche">
-    <button class="tab active" data-view="collection">Sammlung</button>
-    <button class="tab" data-view="catalog">Katalog</button>
-    <button class="tab" data-view="monitor">Fehlend</button>
-    <button class="tab alert-tab" data-view="alerts">Alarme <span id="alertTabBadge" class="tab-badge" hidden></span></button>
-    <button class="tab" data-view="wishlist">Wünsche</button>
-    <button class="tab" data-view="deals">Deals</button>
-  </nav>
+    <nav class="tabs" aria-label="Bereiche">
+      <button class="tab active" data-view="collection">Sammlung</button>
+      <button class="tab" data-view="catalog">Katalog</button>
+      <button class="tab" data-view="monitor">Fehlend</button>
+      <button class="tab alert-tab" data-view="alerts">Alarme <span id="alertTabBadge" class="tab-badge" hidden></span></button>
+      <button class="tab" data-view="wishlist">Wünsche</button>
+      <button class="tab" data-view="deals">Deals</button>
+    </nav>
+  </div>
 
   <main>
     <section class="stats-grid" aria-label="Sammlungsübersicht">
@@ -207,7 +209,7 @@
     <section id="alertsView" class="view panel alerts-panel" hidden>
       <div class="section-heading">
         <div>
-          <p class="eyebrow">Version 0.71</p>
+          <p class="eyebrow">Version 0.71.1</p>
           <h2>Preisalarme & Automatik</h2>
         </div>
         <span class="badge">Sonntag 21 Uhr</span>
@@ -463,6 +465,6 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=0.71.0"></script>
+  <script src="app.js?v=0.71.1"></script>
 </body>
 </html>
