@@ -1,0 +1,310 @@
+name: Build Project Evercade 0.9
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/build-v0.9.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch application to 0.9
+        shell: python
+        run: |
+          from pathlib import Path
+          import json
+
+          app = Path('app.js')
+          text = app.read_text(encoding='utf-8')
+
+          replacements = {
+            'const MONITOR_FRESH_DAYS = 7;': 'const MONITOR_FRESH_DAYS = 1;\nconst PRICE_SEARCH_INTERVAL_MS = 24 * 60 * 60 * 1000;\nconst KLEINANZEIGEN_ADAPTER_VERSION = "generic-parser-module-v1";',
+            'body: { force: true }': 'body: { force: false }',
+            'stündlich nach Preisalarmen schauen': 'einmal täglich nach Preisalarmen schauen',
+            'Stündliche Alarme & Sonntagsempfehlung': 'Tägliche Preisprüfung & Sonntagsempfehlung',
+            'in den letzten 7 Tagen geprüft': 'in den letzten 24 Stunden geprüft',
+            'Preisprüfung älter als 7 Tage': 'Preisprüfung älter als 24 Stunden',
+            'version: "0.71.1"': 'version: "0.9"'
+          }
+          for old, new in replacements.items():
+            if old not in text:
+              raise SystemExit(f'Missing expected app.js marker: {old}')
+            text = text.replace(old, new)
+
+          marker = 'async function runBackgroundScan() {\n  if (!state.background?.enabled || backgroundBusy) return;'
+          replacement = '''function lastPriceSearchAt() {
+            const timestamps = [
+              state.monitor?.lastCompletedAt,
+              state.background?.lastScannedAt
+            ]
+              .map(value => new Date(value || 0).getTime())
+              .filter(Number.isFinite);
+            return timestamps.length ? Math.max(...timestamps) : 0;
+          }
+
+          function dailyPriceSearchDue() {
+            const last = lastPriceSearchAt();
+            return !last || Date.now() - last >= PRICE_SEARCH_INTERVAL_MS;
+          }
+
+          function nextPriceSearchLabel() {
+            const last = lastPriceSearchAt();
+            if (!last) return "jetzt";
+            return new Intl.DateTimeFormat("de-DE", {
+              dateStyle: "short",
+              timeStyle: "short"
+            }).format(new Date(last + PRICE_SEARCH_INTERVAL_MS));
+          }
+
+          function kleinanzeigenParserRequest(items) {
+            return {
+              apiVersion: KLEINANZEIGEN_ADAPTER_VERSION,
+              consumer: "evercade-collection-manager",
+              requestedAt: new Date().toISOString(),
+              source: "kleinanzeigen",
+              search: {
+                cadence: "daily",
+                locale: "de-DE",
+                currency: "EUR",
+                acceptBundles: false,
+                acceptIncomplete: false,
+                includeRejected: true
+              },
+              items: items.map(item => ({
+                externalKey: item.key || `${item.series}-${item.number}`,
+                title: item.title,
+                series: item.series,
+                number: Number(item.number),
+                requiredTerms: ["Evercade"],
+                excludedTerms: ["Konsole", "Controller", "Case", "Hülle leer"]
+              }))
+            };
+          }
+
+          async function runBackgroundScan() {
+            if (!state.background?.enabled || backgroundBusy) return;
+            if (!dailyPriceSearchDue()) {
+              showToast(`Nächste tägliche Preisprüfung: ${nextPriceSearchLabel()}`);
+              return;
+            }'''
+          if marker not in text:
+            raise SystemExit('Missing runBackgroundScan marker')
+          text = text.replace(marker, replacement)
+
+          marker = 'async function runMonitoring() {\n  if (monitorRunning || !apiIsConfigured()) return;'
+          replacement = '''async function runMonitoring() {
+            if (monitorRunning || !apiIsConfigured()) return;
+            if (!dailyPriceSearchDue()) {
+              showToast(`Nächste tägliche Preisprüfung: ${nextPriceSearchLabel()}`);
+              return;
+            }'''
+          if marker not in text:
+            raise SystemExit('Missing runMonitoring marker')
+          text = text.replace(marker, replacement)
+
+          old_tail = '''const lastWeeklyRun = new Date(state.monitor.lastCompletedAt || 0).getTime();
+          const weeklyRunDue = !Number.isFinite(lastWeeklyRun) ||
+            lastWeeklyRun < Date.now() - 7 * 24 * 60 * 60 * 1000;
+          if (new Date().getDay() === 0 && weeklyRunDue && missingItems().length) {
+            if (!state.background.enabled) setTimeout(() => runMonitoring(), 900);
+          }'''
+          new_tail = '''if (dailyPriceSearchDue() && missingItems().length) {
+            if (!state.background.enabled) setTimeout(() => runMonitoring(), 900);
+          }'''
+          if old_tail not in text:
+            raise SystemExit('Missing weekly scheduler block')
+          text = text.replace(old_tail, new_tail)
+          app.write_text(text, encoding='utf-8')
+
+          index = Path('index.html')
+          html = index.read_text(encoding='utf-8')
+          html = html.replace('0.71.1', '0.9')
+          html = html.replace('Sonntag 21 Uhr', '1× täglich')
+          html = html.replace('Ein Lauf prüft jede Cartridge', 'Maximal ein Lauf innerhalb von 24 Stunden prüft jede Cartridge')
+          html = html.replace('Jetzt serverseitig prüfen', 'Tägliche Preisprüfung starten')
+          index.write_text(html, encoding='utf-8')
+
+          manifest = Path('manifest.json')
+          data = json.loads(manifest.read_text(encoding='utf-8'))
+          data['name'] = 'Project Evercade 0.9'
+          data['short_name'] = 'Evercade 0.9'
+          data['version'] = '0.9'
+          manifest.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+      - name: Add Kleinanzeigen integration contract
+        shell: bash
+        run: |
+          mkdir -p integrations docs release
+          cat > integrations/kleinanzeigen-parser-v1.js <<'EOF'
+          /**
+           * Project Evercade 0.9 – GenericParser/Kleinanzeigen adapter contract.
+           * This module is intentionally network-neutral. The deployment can inject
+           * a transport implementing execute(request) without changing the UI model.
+           */
+          export const API_VERSION = 'generic-parser-module-v1';
+
+          export function createKleinanzeigenRequest(items, options = {}) {
+            if (!Array.isArray(items)) throw new TypeError('items must be an array');
+            return {
+              apiVersion: API_VERSION,
+              consumer: 'evercade-collection-manager',
+              requestedAt: new Date().toISOString(),
+              source: 'kleinanzeigen',
+              search: {
+                cadence: 'daily',
+                locale: 'de-DE',
+                currency: 'EUR',
+                location: options.location ?? null,
+                radiusKm: Number.isFinite(options.radiusKm) ? options.radiusKm : null,
+                shippingAllowed: options.shippingAllowed !== false,
+                acceptBundles: options.acceptBundles === true,
+                acceptIncomplete: options.acceptIncomplete === true,
+                includeRejected: options.includeRejected !== false
+              },
+              items: items.map(item => ({
+                externalKey: String(item.key ?? `${item.series}-${item.number}`),
+                title: String(item.title),
+                series: String(item.series),
+                number: Number(item.number),
+                requiredTerms: ['Evercade', ...(item.requiredTerms ?? [])],
+                excludedTerms: item.excludedTerms ?? ['Konsole', 'Controller', 'Case', 'Hülle leer'],
+                maxPrice: Number.isFinite(item.maxPrice) ? item.maxPrice : null
+              }))
+            };
+          }
+
+          export function normalizeKleinanzeigenResponse(payload) {
+            if (!payload || payload.apiVersion !== API_VERSION || !Array.isArray(payload.results)) {
+              throw new TypeError('Invalid generic-parser-module-v1 response');
+            }
+            return payload.results.map(result => ({
+              key: String(result.externalKey),
+              checkedAt: result.checkedAt ?? new Date().toISOString(),
+              offers: (result.offers ?? []).map(offer => ({
+                id: String(offer.id),
+                source: 'Kleinanzeigen',
+                title: String(offer.title ?? ''),
+                price: Number(offer.price),
+                shipping: offer.shipping == null ? null : Number(offer.shipping),
+                total: offer.total == null ? null : Number(offer.total),
+                shippingKnown: offer.shippingKnown === true,
+                condition: String(offer.condition ?? 'Gebraucht'),
+                availability: 'in_stock',
+                sellerType: 'Privat',
+                color: String(offer.color ?? 'Automatisch'),
+                url: String(offer.url),
+                confidence: Number(offer.confidence ?? 0),
+                verifiedAt: offer.verifiedAt ?? result.checkedAt ?? new Date().toISOString()
+              })),
+              rejected: result.rejected ?? []
+            }));
+          }
+          EOF
+
+          cat > docs/KLEINANZEIGEN-INTEGRATION.md <<'EOF'
+          # Kleinanzeigen-Integration in Version 0.9
+
+          Version 0.9 bereitet die Anbindung des GenericParser über `generic-parser-module-v1` vor.
+
+          ## Datenfluss
+
+          1. Evercade erzeugt einmal täglich eine Anfrage mit allen fehlenden Cartridges.
+          2. Der Adapter übergibt Titel, Reihe, Nummer, Pflicht- und Ausschlussbegriffe an den GenericParser.
+          3. Der Parser liefert normalisierte Angebote und optional verworfene Treffer zurück.
+          4. Evercade übernimmt nur valide URLs und rechnerisch konsistente Gesamtpreise.
+
+          ## Noch nicht aktiv
+
+          Der produktive Transport-Endpunkt ist bewusst nicht fest verdrahtet. Er wird aktiviert, sobald der GenericParser-Worker öffentlich unter einer stabilen URL erreichbar ist. Bis dahin bleibt Kleinanzeigen als Direktsuche verfügbar.
+
+          ## Kompatibilität
+
+          - API: `generic-parser-module-v1`
+          - Consumer: `evercade-collection-manager`
+          - Takt: täglich
+          - Standard: Versand erlaubt, keine Konvolute, keine unvollständigen Angebote
+          EOF
+
+      - name: Update documentation
+        shell: python
+        run: |
+          from pathlib import Path
+          readme = Path('README.md')
+          old = readme.read_text(encoding='utf-8')
+          body = '''# Project Evercade – Version 0.9
+
+          Eine für iPhone und Desktop optimierte Web-App zur Verwaltung der persönlichen Evercade-Sammlung und zur täglichen Preisüberwachung fehlender Cartridges.
+
+          ## Neu in Version 0.9
+
+          - Preisvollsuchen sind auf **höchstens einen Lauf innerhalb von 24 Stunden** begrenzt.
+          - Die lokale automatische Suche startet täglich, sofern die letzte vollständige Suche mindestens 24 Stunden zurückliegt.
+          - Auch der serverseitige Preischeck respektiert den täglichen Takt; wiederholte Aufrufe zeigen den nächsten möglichen Zeitpunkt.
+          - Preisbeobachtungen gelten nach 24 Stunden als nicht mehr aktuell.
+          - Die Anbindung des GenericParser für Kleinanzeigen ist über `generic-parser-module-v1` vorbereitet.
+          - Ein normalisierter Request-/Response-Adapter liegt unter `integrations/kleinanzeigen-parser-v1.js`.
+          - Die produktive Parser-URL bleibt bis zur stabilen Worker-Veröffentlichung deaktiviert; die Kleinanzeigen-Direktsuche funktioniert weiter.
+          - Bestehende Sammlung, Wunschliste, Deals, Preisverläufe, Preisgrenzen und Geräteverknüpfung bleiben erhalten.
+
+          ## Technische Grenzen
+
+          Die statische Evercade-App kann den externen Worker nicht selbst zeitgesteuert starten, wenn kein Browser geöffnet ist. Der bestehende Hintergrunddienst muss den täglichen Takt ebenfalls serverseitig anwenden. Version 0.9 sendet dafür keine erzwungenen Mehrfachscans mehr (`force: false`) und blockiert zusätzliche Läufe in der Oberfläche.
+
+          ## Kleinanzeigen
+
+          Die Integrationsbeschreibung steht in `docs/KLEINANZEIGEN-INTEGRATION.md`. Der Adapter ist netzwerkneutral und kann später mit dem bestehenden GenericParser-Worker verbunden werden, ohne das Sammlungsdatenmodell erneut zu ändern.
+
+          ## Vorherige Funktionen
+
+          '''
+          readme.write_text(body + old.split('\n', 2)[-1], encoding='utf-8')
+
+      - name: Validate build
+        shell: bash
+        run: |
+          node --check app.js
+          node --check integrations/kleinanzeigen-parser-v1.js
+          python -m json.tool manifest.json >/dev/null
+          grep -q 'PRICE_SEARCH_INTERVAL_MS' app.js
+          grep -q 'dailyPriceSearchDue' app.js
+          grep -q 'generic-parser-module-v1' integrations/kleinanzeigen-parser-v1.js
+          grep -q 'Version 0.9' index.html
+
+      - name: Build ZIP and checksum
+        shell: bash
+        run: |
+          zip -r release/project-evercade-0.9.zip index.html styles.css app.js manifest.json README.md integrations docs -x '*.DS_Store'
+          sha256sum release/project-evercade-0.9.zip > release/project-evercade-0.9.zip.sha256
+
+      - name: Commit 0.9
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add index.html app.js manifest.json README.md integrations docs release
+          git commit -m 'Release Project Evercade 0.9' || exit 0
+          git tag -f v0.9
+          git push origin HEAD:main
+          git push origin v0.9 --force
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release delete v0.9 --yes 2>/dev/null || true
+          gh release create v0.9 \
+            release/project-evercade-0.9.zip \
+            release/project-evercade-0.9.zip.sha256 \
+            --title 'Project Evercade 0.9' \
+            --notes 'Tägliche Preisprüfung (maximal einmal je 24 Stunden) und vorbereitete GenericParser-/Kleinanzeigen-Integration über generic-parser-module-v1.'
