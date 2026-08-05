@@ -1,4 +1,4 @@
-name: Deploy Project Evercade 0.9 to GitHub Pages
+name: Deploy Project Evercade 0.9.1 to GitHub Pages
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
       - index.html
       - styles.css
       - app.js
+      - kleinanzeigen-client.js
       - manifest.json
       - integrations/**
       - docs/**
@@ -36,12 +37,23 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
+      - name: Validate static application
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check app.js
+          node --check kleinanzeigen-client.js
+          python -m json.tool manifest.json >/dev/null
+          grep -q 'Version 0.9.1' index.html
+          grep -q 'generic-parser-module-v1' kleinanzeigen-client.js
+          grep -q '/api/module/v1/search' kleinanzeigen-client.js
+
       - name: Build static artifact
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p _site
-          cp index.html styles.css app.js manifest.json _site/
+          cp index.html styles.css app.js kleinanzeigen-client.js manifest.json _site/
           if [ -d integrations ]; then cp -R integrations _site/; fi
           if [ -d docs ]; then cp -R docs _site/; fi
           touch _site/.nojekyll
