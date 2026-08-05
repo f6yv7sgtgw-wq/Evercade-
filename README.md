@@ -1,4 +1,27 @@
-# Project Evercade – Version 0.71.1
+# Project Evercade – Version 0.9
+
+Eine für iPhone und Desktop optimierte Web-App zur Verwaltung der persönlichen Evercade-Sammlung und zur täglichen Preisüberwachung fehlender Cartridges.
+
+## Neu in Version 0.9
+
+- Preisvollsuchen sind auf **höchstens einen Lauf innerhalb von 24 Stunden** begrenzt.
+- Die lokale automatische Suche startet täglich, sofern die letzte vollständige Suche mindestens 24 Stunden zurückliegt.
+- Auch der serverseitige Preischeck respektiert den täglichen Takt; wiederholte Aufrufe zeigen den nächsten möglichen Zeitpunkt.
+- Preisbeobachtungen gelten nach 24 Stunden als nicht mehr aktuell.
+- Die Anbindung des GenericParser für Kleinanzeigen ist über `generic-parser-module-v1` vorbereitet.
+- Ein normalisierter Request-/Response-Adapter liegt unter `integrations/kleinanzeigen-parser-v1.js`.
+- Die produktive Parser-URL bleibt bis zur stabilen Worker-Veröffentlichung deaktiviert; die Kleinanzeigen-Direktsuche funktioniert weiter.
+- Bestehende Sammlung, Wunschliste, Deals, Preisverläufe, Preisgrenzen und Geräteverknüpfung bleiben erhalten.
+
+## Technische Grenzen
+
+Die statische Evercade-App kann den externen Worker nicht selbst zeitgesteuert starten, wenn kein Browser geöffnet ist. Der bestehende Hintergrunddienst muss den täglichen Takt ebenfalls serverseitig anwenden. Version 0.9 sendet dafür keine erzwungenen Mehrfachscans mehr (`force: false`) und blockiert zusätzliche Läufe in der Oberfläche.
+
+## Kleinanzeigen
+
+Die Integrationsbeschreibung steht in `docs/KLEINANZEIGEN-INTEGRATION.md`. Der Adapter ist netzwerkneutral und kann später mit dem bestehenden GenericParser-Worker verbunden werden, ohne das Sammlungsdatenmodell erneut zu ändern.
+
+## Vorherige Funktionen
 
 Eine für iPhone und Desktop optimierte Web-App zur Verwaltung der persönlichen Evercade-Sammlung, zur Überwachung aller fehlenden Cartridges und zur Suche nach günstigen Angeboten.
 

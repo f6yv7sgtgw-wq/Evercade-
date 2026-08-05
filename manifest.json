@@ -1,11 +1,12 @@
 {
-  "name": "Project Evercade",
-  "short_name": "Evercade",
+  "name": "Project Evercade 0.9",
+  "short_name": "Evercade 0.9",
   "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0b0d12",
   "theme_color": "#0b0d12",
-  "description": "Gut lesbares Evercade-Sammlungs-Dashboard im Dunkelmodus mit Preisalarmen, Katalog und Deal-Suche"
+  "description": "Gut lesbares Evercade-Sammlungs-Dashboard im Dunkelmodus mit Preisalarmen, Katalog und Deal-Suche",
+  "version": "0.9"
 }

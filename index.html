@@ -7,8 +7,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Project Evercade</title>
-  <link rel="manifest" href="manifest.json?v=0.71.1" />
-  <link rel="stylesheet" href="styles.css?v=0.71.1" />
+  <link rel="manifest" href="manifest.json?v=0.9" />
+  <link rel="stylesheet" href="styles.css?v=0.9" />
 </head>
 <body>
   <div class="sticky-shell">
@@ -17,7 +17,7 @@
         <div class="brand">
           <div class="title-row">
             <h1>Project Evercade</h1>
-            <span class="version-badge">Version 0.71.1</span>
+            <span class="version-badge">Version 0.9</span>
           </div>
           <p class="subtitle">Sammlung, Preise &amp; Alarme</p>
         </div>
@@ -186,7 +186,7 @@
         </div>
         <span id="monitorCount" class="badge"></span>
       </div>
-      <p class="muted compact">Ein Lauf prüft jede Cartridge, die nicht in deiner Sammlung steht. Wunschlisten-Titel werden zuerst bearbeitet; vorhandene Cartridges werden automatisch ausgeschlossen.</p>
+      <p class="muted compact">Maximal ein Lauf innerhalb von 24 Stunden prüft jede Cartridge, die nicht in deiner Sammlung steht. Wunschlisten-Titel werden zuerst bearbeitet; vorhandene Cartridges werden automatisch ausgeschlossen.</p>
       <div class="monitor-controls">
         <button id="runMonitorButton" class="primary-button full-width" type="button">Alle fehlenden Cartridges prüfen</button>
         <button id="stopMonitorButton" class="secondary-button full-width" type="button" hidden>Überwachung pausieren</button>
@@ -209,10 +209,10 @@
     <section id="alertsView" class="view panel alerts-panel" hidden>
       <div class="section-heading">
         <div>
-          <p class="eyebrow">Version 0.71.1</p>
+          <p class="eyebrow">Version 0.9</p>
           <h2>Preisalarme & Automatik</h2>
         </div>
-        <span class="badge">Sonntag 21 Uhr</span>
+        <span class="badge">1× täglich</span>
       </div>
       <p class="muted compact">Nach der einmaligen Verknüpfung werden alle fehlenden Cartridges serverseitig überwacht. Gleiche, unveränderte Angebote lösen keinen zweiten Alarm aus.</p>
       <div id="alertsContent"></div>
@@ -465,6 +465,6 @@
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="app.js?v=0.71.1"></script>
+  <script src="app.js?v=0.9"></script>
 </body>
 </html>

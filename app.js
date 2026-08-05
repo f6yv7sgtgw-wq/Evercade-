@@ -7,7 +7,9 @@ const V02_STORAGE_KEY = "project-evercade-v02";
 const LEGACY_STORAGE_KEY = "project-evercade-v01";
 const DEAL_API_URL = "https://project-evercade-deal-api.jnldc.chatgpt.site";
 const MONITOR_BATCH_SIZE = 18;
-const MONITOR_FRESH_DAYS = 7;
+const MONITOR_FRESH_DAYS = 1;
+const PRICE_SEARCH_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const KLEINANZEIGEN_ADAPTER_VERSION = "generic-parser-module-v1";
 
 const catalog = [
   // Console – rote Hüllen
@@ -720,7 +722,7 @@ async function enableBackgroundMonitoring() {
     await syncBackgroundWatchList({ silent: true });
     const firstScan = await backgroundRequest("/api/devices/scan", {
       method: "POST",
-      body: { force: true }
+      body: { force: false }
     });
     applyBackgroundSnapshot(firstScan);
     await createAutomationLink({ copy: false, silent: true });
@@ -751,8 +753,61 @@ async function refreshBackgroundStatus({ silent = true } = {}) {
   }
 }
 
+function lastPriceSearchAt() {
+  const timestamps = [
+    state.monitor?.lastCompletedAt,
+    state.background?.lastScannedAt
+  ]
+    .map(value => new Date(value || 0).getTime())
+    .filter(Number.isFinite);
+  return timestamps.length ? Math.max(...timestamps) : 0;
+}
+
+function dailyPriceSearchDue() {
+  const last = lastPriceSearchAt();
+  return !last || Date.now() - last >= PRICE_SEARCH_INTERVAL_MS;
+}
+
+function nextPriceSearchLabel() {
+  const last = lastPriceSearchAt();
+  if (!last) return "jetzt";
+  return new Intl.DateTimeFormat("de-DE", {
+    dateStyle: "short",
+    timeStyle: "short"
+  }).format(new Date(last + PRICE_SEARCH_INTERVAL_MS));
+}
+
+function kleinanzeigenParserRequest(items) {
+  return {
+    apiVersion: KLEINANZEIGEN_ADAPTER_VERSION,
+    consumer: "evercade-collection-manager",
+    requestedAt: new Date().toISOString(),
+    source: "kleinanzeigen",
+    search: {
+      cadence: "daily",
+      locale: "de-DE",
+      currency: "EUR",
+      acceptBundles: false,
+      acceptIncomplete: false,
+      includeRejected: true
+    },
+    items: items.map(item => ({
+      externalKey: item.key || `${item.series}-${item.number}`,
+      title: item.title,
+      series: item.series,
+      number: Number(item.number),
+      requiredTerms: ["Evercade"],
+      excludedTerms: ["Konsole", "Controller", "Case", "Hülle leer"]
+    }))
+  };
+}
+
 async function runBackgroundScan() {
   if (!state.background?.enabled || backgroundBusy) return;
+  if (!dailyPriceSearchDue()) {
+    showToast(`Nächste tägliche Preisprüfung: ${nextPriceSearchLabel()}`);
+    return;
+  }
   backgroundBusy = true;
   backgroundError = "";
   renderAlerts();
@@ -760,7 +815,7 @@ async function runBackgroundScan() {
     await syncBackgroundWatchList({ silent: true });
     const snapshot = await backgroundRequest("/api/devices/scan", {
       method: "POST",
-      body: { force: true }
+      body: { force: false }
     });
     applyBackgroundSnapshot(snapshot);
     showToast(snapshot.scan?.skipped ? "Preise sind bereits aktuell" : "Hintergrund-Preischeck abgeschlossen");
@@ -1175,7 +1230,7 @@ function renderBestDeal() {
       isWished(item.key) ? "Wunschliste priorisiert" : null,
       item.legacy ? "Legacy-Cartridge" : null,
       `#${String(item.number).padStart(2, "0")}`,
-      fresh ? `geprüft ${dateLabel(observation.checkedAt)}` : "Preisprüfung älter als 7 Tage"
+      fresh ? `geprüft ${dateLabel(observation.checkedAt)}` : "Preisprüfung älter als 24 Stunden"
     ].filter(Boolean);
     title.textContent = item.title;
     content.innerHTML = `
@@ -1312,7 +1367,7 @@ function renderMonitor() {
   progressBar.value = monitorRunning ? completed : progress.fresh;
   progressText.textContent = monitorRunning
     ? `${completed} von ${total} Cartridges in diesem Lauf geprüft`
-    : `${progress.fresh} von ${progress.missing} fehlenden Cartridges in den letzten 7 Tagen geprüft`;
+    : `${progress.fresh} von ${progress.missing} fehlenden Cartridges in den letzten 24 Stunden geprüft`;
   runButton.disabled = monitorRunning || progress.missing === 0;
   runButton.textContent = progress.pending
     ? `Überwachung fortsetzen (${progress.pending})`
@@ -1420,7 +1475,7 @@ function renderAlerts() {
   const unread = background.alerts.filter(alert => !alert.readAt).length;
   const automationMarkup = background.automationUrl
     ? `
-      <p class="muted compact">Kopiere diesen privaten Link einmal in den Chat. Danach kann ChatGPT stündlich nach Preisalarmen schauen und sonntags um 21 Uhr die Kaufempfehlung senden.</p>
+      <p class="muted compact">Kopiere diesen privaten Link einmal in den Chat. Danach kann ChatGPT einmal täglich nach Preisalarmen schauen und sonntags um 21 Uhr die Kaufempfehlung senden.</p>
       <label class="automation-link-label">
         Verknüpfungslink
         <input id="automationUrl" type="text" readonly value="${escapeHtml(background.automationUrl)}">
@@ -1497,7 +1552,7 @@ function renderAlerts() {
       <span class="automation-icon" aria-hidden="true">🔔</span>
       <div>
         <p class="eyebrow">ChatGPT-Benachrichtigungen</p>
-        <h3>Stündliche Alarme & Sonntagsempfehlung</h3>
+        <h3>Tägliche Preisprüfung & Sonntagsempfehlung</h3>
       </div>
       ${automationMarkup}
     </article>
@@ -2095,6 +2150,10 @@ function applyMonitorBatch(result, batchKeys) {
 
 async function runMonitoring() {
   if (monitorRunning || !apiIsConfigured()) return;
+  if (!dailyPriceSearchDue()) {
+    showToast(`Nächste tägliche Preisprüfung: ${nextPriceSearchLabel()}`);
+    return;
+  }
   const missing = missingItems();
   if (!missing.length) {
     showToast("Deine Sammlung ist vollständig");
@@ -2371,7 +2430,7 @@ document.querySelector("#exportButton").addEventListener("click", () => {
   };
   const backup = {
     app: "Project Evercade",
-    version: "0.71.1",
+    version: "0.9",
     exportedAt: new Date().toISOString(),
     data: exportData
   };
@@ -2433,10 +2492,7 @@ document.querySelector("#resetButton").addEventListener("click", async () => {
 render();
 showView(activeView);
 
-const lastWeeklyRun = new Date(state.monitor.lastCompletedAt || 0).getTime();
-const weeklyRunDue = !Number.isFinite(lastWeeklyRun) ||
-  lastWeeklyRun < Date.now() - 7 * 24 * 60 * 60 * 1000;
-if (new Date().getDay() === 0 && weeklyRunDue && missingItems().length) {
+if (dailyPriceSearchDue() && missingItems().length) {
   if (!state.background.enabled) setTimeout(() => runMonitoring(), 900);
 }
 if (state.background.enabled) {
