@@ -1,3 +1,16 @@
+# Project Evercade – Version 0.9.1
+
+## Kleinanzeigen-Integration
+
+- aktive Live-Anbindung an GenericParser 0.45 über `generic-parser-module-v1`
+- konfigurierbare Worker-URL und Zugriffstoken, ausschließlich lokal im Browser gespeichert
+- Vertragsprüfung über `/api/module/v1/capabilities`
+- paketweise Suche über `/api/module/v1/search`
+- maximal vier Pakete mit je sieben Anzeigen und fünf Sekunden Pause
+- Deduplizierung anhand der Kleinanzeigen-ID
+- Übernahme gefundener Anzeigen in die bestehende Deal-Liste
+- bestehende 21 Suchseiten bleiben unverändert verfügbar
+
 # Project Evercade – Version 0.9
 
 Eine für iPhone und Desktop optimierte Web-App zur Verwaltung der persönlichen Evercade-Sammlung und zur täglichen Preisüberwachung fehlender Cartridges.
