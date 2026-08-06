@@ -2,6 +2,7 @@
   const CONTRACT = 'generic-parser-module-v1';
   const URL_KEY = 'evercade-generic-parser-url';
   const TOKEN_KEY = 'evercade-generic-parser-token';
+  const DEFAULT_URL = 'https://genericparser.f6yv7sgtgw.workers.dev';
   const PAUSE_MS = 5000;
   const MAX_PACKETS = 4;
   const $ = selector => document.querySelector(selector);
@@ -11,7 +12,7 @@
   }[char]));
 
   function parserUrl() {
-    return ($('#genericParserUrl')?.value || localStorage.getItem(URL_KEY) || '')
+    return ($('#genericParserUrl')?.value || localStorage.getItem(URL_KEY) || DEFAULT_URL)
       .trim()
       .replace(/\/$/, '');
   }
@@ -213,7 +214,7 @@
       <section id="genericParserPanel" class="deal-search-box">
         <p class="eyebrow">Zusätzliche automatische Quelle</p>
         <h3>Kleinanzeigen über GenericParser 0.45</h3>
-        <label>Worker-URL<input id="genericParserUrl" type="url" inputmode="url" placeholder="https://…workers.dev" value="${esc(localStorage.getItem(URL_KEY) || '')}"></label>
+        <label>Worker-URL<input id="genericParserUrl" type="url" inputmode="url" placeholder="https://…workers.dev" value="${esc(localStorage.getItem(URL_KEY) || DEFAULT_URL)}"></label>
         <label>Zugriffstoken<input id="genericParserToken" type="password" autocomplete="off" placeholder="aktiver Worker-Token" value="${esc(localStorage.getItem(TOKEN_KEY) || '')}"></label>
         <button id="searchKleinanzeigenButton" class="primary-button full-width" type="button">Kleinanzeigen automatisch prüfen</button>
         <p class="muted compact">Die bisherigen Suchseiten bleiben erhalten. GenericParser verarbeitet zusätzlich bis zu vier Pakete mit je höchstens sieben Anzeigen und fünf Sekunden Pause.</p>
