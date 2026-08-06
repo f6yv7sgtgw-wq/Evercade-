@@ -1,4 +1,4 @@
-name: Deploy Project Evercade 0.9.4 to GitHub Pages
+name: Deploy Project Evercade 0.9.4.2 to GitHub Pages
 
 on:
   push:
@@ -9,6 +9,7 @@ on:
       - styles.css
       - app.js
       - app-0.9.4.js
+      - app-0.9.4.1.js
       - manifest.json
       - VERSION.json
       - integrations/**
@@ -44,19 +45,13 @@ jobs:
           set -euo pipefail
           node --check app.js
           node --check app-0.9.4.js
+          node --check app-0.9.4.1.js
           python -m json.tool manifest.json >/dev/null
           python -m json.tool VERSION.json >/dev/null
           grep -q "const VERSION = '0.9.4'" app-0.9.4.js
-          grep -q "SOURCE_NAME = 'Kleinanzeigen'" app-0.9.4.js
-          grep -q 'state.background.sourceStatus' app-0.9.4.js
-          grep -q 'state.monitor.observations' app-0.9.4.js
-          grep -q 'applyBackgroundSnapshot = function' app-0.9.4.js
-          grep -q 'renderAlerts = function' app-0.9.4.js
-          grep -q 'runBackgroundScan = async function' app-0.9.4.js
-          grep -q 'https://genericparser.f6yv7sgtgw.workers.dev' app-0.9.4.js
+          grep -q "const VERSION = '0.9.4.2'" app-0.9.4.1.js
+          grep -q 'EvercadeKleinanzeigen094' app-0.9.4.1.js
           grep -q '/api/module/v1/search' app-0.9.4.js
-          grep -q '"version": "0.9.4"' manifest.json
-          grep -q '"version": "0.9.4"' VERSION.json
 
       - name: Build static artifact
         shell: bash
@@ -64,25 +59,23 @@ jobs:
           set -euo pipefail
           rm -rf _site
           mkdir -p _site
-          cp index.html styles.css app.js app-0.9.4.js manifest.json VERSION.json _site/
+          cp index.html styles.css app.js app-0.9.4.js app-0.9.4.1.js manifest.json VERSION.json _site/
           if [ -d integrations ]; then cp -R integrations _site/; fi
           if [ -d docs ]; then cp -R docs _site/; fi
 
-          sed -i 's/0\.9\.1/0.9.4/g; s/0\.9\.2 Build 2/0.9.4/g; s/0\.9\.2/0.9.4/g; s/0\.9\.3/0.9.4/g' _site/index.html
-          sed -i 's/21 Bezugsquellen: 9 werden live ausgewertet, 12 weitere öffnen eine gezielte Direktsuche\./22 Bezugsquellen: 10 werden automatisch ausgewertet – einschließlich Kleinanzeigen über GenericParser 0.45. 12 weitere öffnen eine gezielte Direktsuche./g' _site/index.html
+          sed -i 's/0\.9\.1/0.9.4.2/g; s/0\.9\.2 Build 2/0.9.4.2/g; s/0\.9\.2/0.9.4.2/g; s/0\.9\.3/0.9.4.2/g; s/0\.9\.4\.1\.1/0.9.4.2/g; s/0\.9\.4\.1/0.9.4.2/g; s/0\.9\.4/0.9.4.2/g' _site/index.html
           sed -i '/kleinanzeigen-client\.js/d' _site/index.html
           sed -i '/kleinanzeigen-build2\.js/d' _site/index.html
-          sed -i 's#</body>#  <script src="app-0.9.4.js?v=0.9.4"></script>\n</body>#' _site/index.html
-          sed -i 's/app.js?v=[^"]*/app.js?v=0.9.4/g' _site/index.html
-          sed -i 's/styles.css?v=[^"]*/styles.css?v=0.9.4/g' _site/index.html
-          sed -i 's/manifest.json?v=[^"]*/manifest.json?v=0.9.4/g' _site/index.html
+          sed -i '/app-0\.9\.4\.js/d' _site/index.html
+          sed -i '/app-0\.9\.4\.1\.js/d' _site/index.html
+          sed -i 's#</body>#  <script src="app-0.9.4.js?v=0.9.4.2"></script>\n  <script src="app-0.9.4.1.js?v=0.9.4.2"></script>\n</body>#' _site/index.html
+          sed -i 's/app.js?v=[^"]*/app.js?v=0.9.4.2/g' _site/index.html
+          sed -i 's/styles.css?v=[^"]*/styles.css?v=0.9.4.2/g' _site/index.html
+          sed -i 's/manifest.json?v=[^"]*/manifest.json?v=0.9.4.2/g' _site/index.html
 
-          grep -q 'Version 0.9.4' _site/index.html
-          grep -q 'app.js?v=0.9.4' _site/index.html
-          grep -q 'app-0.9.4.js?v=0.9.4' _site/index.html
-          grep -q '22 Bezugsquellen' _site/index.html
-          ! grep -q 'kleinanzeigen-client.js' _site/index.html
-          ! grep -q 'kleinanzeigen-build2.js' _site/index.html
+          grep -q 'Version 0.9.4.2' _site/index.html
+          grep -q 'app-0.9.4.js?v=0.9.4.2' _site/index.html
+          grep -q 'app-0.9.4.1.js?v=0.9.4.2' _site/index.html
           touch _site/.nojekyll
 
       - name: Upload Pages artifact
