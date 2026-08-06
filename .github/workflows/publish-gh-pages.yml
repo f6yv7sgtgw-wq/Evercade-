@@ -1,21 +1,16 @@
-name: Publish Evercade 0.9.4.1 to gh-pages
+name: Publish Project Evercade to gh-pages
 
 on:
   push:
     branches: [main]
-    paths:
-      - index.html
-      - styles.css
-      - app.js
-      - app-0.9.4.js
-      - app-0.9.4.1.js
-      - manifest.json
-      - VERSION.json
-      - .github/workflows/publish-gh-pages.yml
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: evercade-gh-pages
+  cancel-in-progress: true
 
 jobs:
   publish:
@@ -28,27 +23,27 @@ jobs:
         run: |
           set -euo pipefail
           node --check app.js
-          node --check app-0.9.4.js
-          node --check app-0.9.4.1.js
-          grep -q "const VERSION = '0.9.4.1'" app-0.9.4.1.js
-          grep -q "SOURCE = 'Kleinanzeigen'" app-0.9.4.1.js
-          grep -q 'state.background.sourceStatus' app-0.9.4.1.js
-          grep -q '23 Bezugsquellen' app-0.9.4.1.js
-          grep -q '11 werden automatisch' app-0.9.4.1.js
+          node --check kleinanzeigen-client.js
+          node -e "const v=require('./VERSION.json'); if(v.version!=='0.9.5'||v.display_version!=='0.9.5') throw new Error('VERSION.json is not 0.9.5')"
+          grep -q "const VERSION='0.9.5'" kleinanzeigen-client.js
+          grep -q "generic-parser-module-v1" kleinanzeigen-client.js
+          grep -q "runDailyScan" kleinanzeigen-client.js
 
       - name: Build branch content
         run: |
           set -euo pipefail
           rm -rf public
           mkdir public
-          cp index.html styles.css app.js app-0.9.4.js app-0.9.4.1.js manifest.json VERSION.json public/
-          sed -i 's/0\.9\.1/0.9.4.1/g; s/0\.9\.2 Build 2/0.9.4.1/g; s/0\.9\.2/0.9.4.1/g; s/0\.9\.3/0.9.4.1/g; s/0\.9\.4/0.9.4.1/g' public/index.html
-          sed -i '/kleinanzeigen-client\.js/d; /kleinanzeigen-build2\.js/d; /app-0\.9\.4\.js/d; /app-0\.9\.4\.1\.js/d' public/index.html
-          sed -i 's#</body>#  <script src="app-0.9.4.js?v=0.9.4.1"></script>\n  <script src="app-0.9.4.1.js?v=0.9.4.1"></script>\n</body>#' public/index.html
-          sed -i 's/app.js?v=[^"]*/app.js?v=0.9.4.1/g; s/styles.css?v=[^"]*/styles.css?v=0.9.4.1/g; s/manifest.json?v=[^"]*/manifest.json?v=0.9.4.1/g' public/index.html
+          rsync -a \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='public/' \
+            ./ public/
           touch public/.nojekyll
-          grep -q 'Version 0.9.4.1' public/index.html
-          grep -q 'app-0.9.4.1.js?v=0.9.4.1' public/index.html
+          grep -q 'kleinanzeigen-client.js' public/index.html
+          test -f public/VERSION.json
+          test -f public/app.js
+          test -f public/kleinanzeigen-client.js
 
       - name: Publish gh-pages branch
         uses: peaceiris/actions-gh-pages@v4
