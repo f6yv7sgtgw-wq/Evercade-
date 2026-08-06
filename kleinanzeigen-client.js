@@ -15,6 +15,21 @@
   let busy = false;
   let current = { key: null, offers: [] };
 
+  function syncReleaseUi() {
+    document.querySelectorAll('.version-badge').forEach(node => {
+      node.textContent = `Version ${VERSION}`;
+    });
+    document.querySelectorAll('#alertsView .eyebrow').forEach(node => {
+      if (/^Version\s/i.test(node.textContent || '')) node.textContent = `Version ${VERSION}`;
+    });
+    const sourceText = [...document.querySelectorAll('.deal-search-box .muted.compact')]
+      .find(node => /Bezugsquellen/i.test(node.textContent || ''));
+    if (sourceText) {
+      sourceText.textContent = '22 Bezugsquellen: 10 werden automatisch ausgewertet – einschließlich Kleinanzeigen über GenericParser 0.45. 12 weitere öffnen eine gezielte Direktsuche.';
+    }
+    document.documentElement.dataset.evercadeVersion = VERSION;
+  }
+
   function statusTarget() {
     return $('#genericParserStatus') || $('#liveSearchStatus');
   }
@@ -145,7 +160,7 @@
     if (!target) return;
     target.innerHTML = offers.length ? `
       <div class="section-heading saved-deals-heading">
-        <div><p class="eyebrow">Automatische Quelle</p><h3>Kleinanzeigen</h3></div>
+        <div><p class="eyebrow">Automatische Bezugsquelle</p><h3>Kleinanzeigen</h3></div>
         <span class="badge">${offers.length} Treffer</span>
       </div>
       ${offers.map(offer => `
@@ -183,7 +198,6 @@
     };
     if (existing) Object.assign(existing, deal);
     else state.deals.push({ id: typeof makeId === 'function' ? makeId() : offer.id, ...deal });
-
     if (typeof recordPriceObservation === 'function') {
       try { recordPriceObservation(key, offer.total, 'Kleinanzeigen', offer.verifiedAt); } catch {}
     }
@@ -198,7 +212,7 @@
     const item = typeof catalogByKey !== 'undefined' ? catalogByKey.get(key) : null;
     if (!item) return;
     busy = true;
-    showStatus('Kleinanzeigen wird zusätzlich geprüft …', 'loading');
+    showStatus('Kleinanzeigen wird als automatische Bezugsquelle geprüft …', 'loading');
     try {
       const identity = await verify();
       const { offers, packets } = await searchItem(item);
@@ -253,15 +267,14 @@
     const box = $('.deal-search-box');
     if (!box || $('#genericParserStatus')) return;
     box.insertAdjacentHTML('beforeend', `
-      <p class="muted compact">Kleinanzeigen wird automatisch über GenericParser 0.45 mitgeprüft. Worker: <code>${WORKER_URL}</code>. Kein Zugriffstoken erforderlich.</p>
+      <p class="muted compact"><strong>Kleinanzeigen: automatische Bezugsquelle.</strong> Prüfung über GenericParser 0.45 unter <code>${WORKER_URL}</code>; kein Zugriffstoken erforderlich.</p>
       <div id="genericParserStatus" class="live-search-status"></div>`);
   }
 
   function bind() {
+    syncReleaseUi();
     injectStatus();
-    $('#searchDealsButton')?.addEventListener('click', () => {
-      setTimeout(runInteractiveSearch, 0);
-    });
+    $('#searchDealsButton')?.addEventListener('click', () => setTimeout(runInteractiveSearch, 0));
     document.body.addEventListener('click', event => {
       const button = event.target.closest('[data-ka-save]');
       if (!button) return;
@@ -274,6 +287,7 @@
   window.EvercadeKleinanzeigen = {
     version: VERSION,
     workerUrl: WORKER_URL,
+    automaticSource: true,
     runInteractiveSearch,
     runDailyScan
   };
