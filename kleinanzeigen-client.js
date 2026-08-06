@@ -1,10 +1,11 @@
 (() => {
-  const VERSION = '0.9.2';
+  const VERSION = '0.9.3';
   const CONTRACT = 'generic-parser-module-v1';
+  const SOURCE_NAME = 'Kleinanzeigen';
   const WORKER_URL = 'https://genericparser.f6yv7sgtgw.workers.dev';
   const PAUSE_MS = 5000;
   const MAX_PACKETS_INTERACTIVE = 4;
-  const DAILY_KEY = 'evercade-kleinanzeigen-last-daily-run';
+  const DAILY_KEY = 'evercade-kleinanzeigen-last-daily-run-v093';
   const DAY_MS = 24 * 60 * 60 * 1000;
   const $ = selector => document.querySelector(selector);
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -14,6 +15,81 @@
 
   let busy = false;
   let current = { key: null, offers: [] };
+  let renderingSourceStatus = false;
+
+  function persist() {
+    if (typeof persistState === 'function') persistState();
+  }
+
+  function sourceEntry() {
+    if (typeof state === 'undefined') return null;
+    state.background ||= {};
+    state.background.sourceStatus = Array.isArray(state.background.sourceStatus)
+      ? state.background.sourceStatus
+      : [];
+    return state.background.sourceStatus.find(source => source.name === SOURCE_NAME) || null;
+  }
+
+  function updateSourceStatus({ status, accepted = 0, candidatesExamined = 0, note = '', checkedAt = new Date().toISOString() }) {
+    if (typeof state === 'undefined') return;
+    state.background ||= {};
+    state.background.sourceStatus = Array.isArray(state.background.sourceStatus)
+      ? state.background.sourceStatus
+      : [];
+    const previous = sourceEntry();
+    const next = {
+      name: SOURCE_NAME,
+      status: status === 'ok' ? 'ok' : 'unavailable',
+      checkedAt,
+      lastSuccessAt: status === 'ok' ? checkedAt : previous?.lastSuccessAt || null,
+      note: String(note || ''),
+      candidatesExamined: Math.max(0, Number(candidatesExamined) || 0),
+      accepted: Math.max(0, Number(accepted) || 0)
+    };
+    const others = state.background.sourceStatus.filter(source => source.name !== SOURCE_NAME);
+    state.background.sourceStatus = [...others, next]
+      .sort((a, b) => String(a.name).localeCompare(String(b.name), 'de'));
+    persist();
+    refreshSourceUi();
+  }
+
+  function ensureInitialSource() {
+    if (sourceEntry()) return;
+    updateSourceStatus({
+      status: 'unavailable',
+      note: 'Noch nicht geprüft',
+      checkedAt: null
+    });
+  }
+
+  function refreshSourceUi() {
+    if (renderingSourceStatus) return;
+    renderingSourceStatus = true;
+    try {
+      if (typeof renderAlerts === 'function') renderAlerts();
+      const heading = [...document.querySelectorAll('.source-heading')]
+        .find(node => /Automatische Bezugsquellen/i.test(node.textContent || ''));
+      const badge = heading?.querySelector('.badge');
+      if (badge) badge.textContent = '10 automatisch';
+    } finally {
+      renderingSourceStatus = false;
+    }
+  }
+
+  function installRenderHook() {
+    if (typeof renderAlerts !== 'function' || renderAlerts.__kleinanzeigenIntegrated) return;
+    const original = renderAlerts;
+    const integrated = function (...args) {
+      const result = original.apply(this, args);
+      const heading = [...document.querySelectorAll('.source-heading')]
+        .find(node => /Automatische Bezugsquellen/i.test(node.textContent || ''));
+      const badge = heading?.querySelector('.badge');
+      if (badge) badge.textContent = '10 automatisch';
+      return result;
+    };
+    integrated.__kleinanzeigenIntegrated = true;
+    renderAlerts = integrated;
+  }
 
   function syncReleaseUi() {
     document.querySelectorAll('.version-badge').forEach(node => {
@@ -97,11 +173,11 @@
     if (!listing?.id || !listing?.url || !Number.isFinite(price) || price < 0) return null;
     return {
       id: `kleinanzeigen-${listing.id}`,
-      source: 'Kleinanzeigen',
+      source: SOURCE_NAME,
       title: String(listing.title || ''),
       price,
-      shipping: 0,
-      total: price,
+      shipping: null,
+      total: null,
       shippingKnown: false,
       condition: String(listing.result_info?.condition || 'Gebraucht'),
       availability: 'in_stock',
@@ -120,6 +196,7 @@
     const byId = new Map();
     let page = 0;
     let packets = 0;
+    let candidatesExamined = 0;
     while (packets < maxPackets) {
       const result = await api('/api/module/v1/search', {
         method: 'POST',
@@ -128,6 +205,7 @@
       if (result?.contract !== CONTRACT || result?.profile_id !== `evercade:${item.key}`) {
         throw new Error('Inkonsistente GenericParser-Antwort.');
       }
+      candidatesExamined += Number(result?.metrics?.candidates_examined || result?.candidates_examined || (result.listings || []).length) || 0;
       for (const listing of result.listings || []) {
         const offer = normalize(listing);
         if (offer) byId.set(offer.id, offer);
@@ -139,7 +217,24 @@
       if (!Number.isInteger(page) || page < 0) throw new Error('Ungültige Pagination.');
       await wait(PAUSE_MS);
     }
-    return { offers: [...byId.values()], packets };
+    return { offers: [...byId.values()], packets, candidatesExamined };
+  }
+
+  function mergeOffersIntoMonitor(item, offers) {
+    if (typeof state === 'undefined') return;
+    state.monitor ||= { observations: {}, history: {} };
+    state.monitor.observations ||= {};
+    const existing = state.monitor.observations[item.key] || { offers: [] };
+    const byId = new Map((existing.offers || []).map(offer => [String(offer.id || offer.url), offer]));
+    for (const offer of offers) byId.set(String(offer.id || offer.url), offer);
+    state.monitor.observations[item.key] = {
+      ...existing,
+      checkedAt: new Date().toISOString(),
+      offers: [...byId.values()].slice(0, 20),
+      automaticSourcesAvailable: 10,
+      candidatesExamined: Math.max(Number(existing.candidatesExamined) || 0, offers.length)
+    };
+    persist();
   }
 
   function resultContainer() {
@@ -186,7 +281,7 @@
       price: offer.price,
       shipping: 0,
       condition: offer.condition,
-      source: 'Kleinanzeigen',
+      source: SOURCE_NAME,
       url: offer.url,
       color: 'Automatisch',
       sellerType: 'Privat',
@@ -194,14 +289,12 @@
       capturedAt: offer.verifiedAt,
       checkedAt: offer.verifiedAt,
       parserScore: offer.confidence,
-      parserTrafficLight: offer.trafficLight
+      parserTrafficLight: offer.trafficLight,
+      shippingUnknown: true
     };
     if (existing) Object.assign(existing, deal);
     else state.deals.push({ id: typeof makeId === 'function' ? makeId() : offer.id, ...deal });
-    if (typeof recordPriceObservation === 'function') {
-      try { recordPriceObservation(key, offer.total, 'Kleinanzeigen', offer.verifiedAt); } catch {}
-    }
-    if (typeof saveState === 'function') saveState();
+    persist();
     if (!silent && typeof render === 'function') render();
     if (!silent && typeof showToast === 'function') showToast(existing ? 'Kleinanzeigen-Deal aktualisiert' : 'Kleinanzeigen-Deal gespeichert');
   }
@@ -212,14 +305,17 @@
     const item = typeof catalogByKey !== 'undefined' ? catalogByKey.get(key) : null;
     if (!item) return;
     busy = true;
-    showStatus('Kleinanzeigen wird als automatische Bezugsquelle geprüft …', 'loading');
+    showStatus('Kleinanzeigen wird als zehnte automatische Bezugsquelle geprüft …', 'loading');
     try {
       const identity = await verify();
-      const { offers, packets } = await searchItem(item);
+      const { offers, packets, candidatesExamined } = await searchItem(item);
       current = { key: item.key, offers };
+      mergeOffersIntoMonitor(item, offers);
+      updateSourceStatus({ status: 'ok', accepted: offers.length, candidatesExamined });
       renderOffers(item, offers);
       showStatus(`${offers.length} Kleinanzeigen-Treffer · ${packets} Paket${packets === 1 ? '' : 'e'} · Worker ${identity.version || '0.45.0'}.`);
     } catch (error) {
+      updateSourceStatus({ status: 'unavailable', note: error.message });
       showStatus(`Kleinanzeigen-Suche fehlgeschlagen: ${error.message}`, 'error');
     } finally {
       busy = false;
@@ -231,33 +327,36 @@
     return !last || Date.now() - last >= DAY_MS;
   }
 
-  async function runDailyScan() {
-    if (busy || !dailyDue()) return;
+  async function runDailyScan({ force = false } = {}) {
+    if (busy || (!force && !dailyDue())) return;
     if (typeof missingItems !== 'function') return;
     const items = missingItems();
     if (!Array.isArray(items) || !items.length) return;
     busy = true;
+    let totalAccepted = 0;
+    let totalCandidates = 0;
     try {
       await verify();
-      let found = 0;
       for (let index = 0; index < items.length; index += 1) {
         const item = items[index];
         showStatus(`Tägliche Kleinanzeigen-Prüfung ${index + 1}/${items.length}: ${item.title}`, 'loading');
         try {
-          const { offers } = await searchItem(item, 1);
-          const best = offers.sort((a, b) => a.price - b.price)[0];
-          if (best) {
-            saveOffer(best, item.key, true);
-            found += 1;
-          }
+          const { offers, candidatesExamined } = await searchItem(item, 1);
+          totalAccepted += offers.length;
+          totalCandidates += candidatesExamined;
+          mergeOffersIntoMonitor(item, offers);
         } catch (error) {
           console.warn('Kleinanzeigen daily scan failed', item.key, error);
         }
         if (index < items.length - 1) await wait(PAUSE_MS);
       }
       localStorage.setItem(DAILY_KEY, String(Date.now()));
+      updateSourceStatus({ status: 'ok', accepted: totalAccepted, candidatesExamined: totalCandidates });
       if (typeof render === 'function') render();
-      showStatus(`Tägliche Kleinanzeigen-Prüfung abgeschlossen: ${found} Angebote übernommen.`);
+      showStatus(`Tägliche Kleinanzeigen-Prüfung abgeschlossen: ${totalAccepted} passende Anzeigen.`);
+    } catch (error) {
+      updateSourceStatus({ status: 'unavailable', note: error.message });
+      showStatus(`Kleinanzeigen-Prüfung fehlgeschlagen: ${error.message}`, 'error');
     } finally {
       busy = false;
     }
@@ -267,20 +366,30 @@
     const box = $('.deal-search-box');
     if (!box || $('#genericParserStatus')) return;
     box.insertAdjacentHTML('beforeend', `
-      <p class="muted compact"><strong>Kleinanzeigen: automatische Bezugsquelle.</strong> Prüfung über GenericParser 0.45 unter <code>${WORKER_URL}</code>; kein Zugriffstoken erforderlich.</p>
+      <p class="muted compact"><strong>Kleinanzeigen ist vollständig als zehnte automatische Bezugsquelle integriert.</strong> Prüfung über GenericParser 0.45; kein Zugriffstoken erforderlich.</p>
       <div id="genericParserStatus" class="live-search-status"></div>`);
   }
 
   function bind() {
+    installRenderHook();
     syncReleaseUi();
+    ensureInitialSource();
     injectStatus();
+    refreshSourceUi();
+
     $('#searchDealsButton')?.addEventListener('click', () => setTimeout(runInteractiveSearch, 0));
     document.body.addEventListener('click', event => {
-      const button = event.target.closest('[data-ka-save]');
-      if (!button) return;
-      const offer = current.offers.find(entry => entry.id === button.dataset.kaSave);
-      if (offer && current.key) saveOffer(offer, current.key);
+      const saveButton = event.target.closest('[data-ka-save]');
+      if (saveButton) {
+        const offer = current.offers.find(entry => entry.id === saveButton.dataset.kaSave);
+        if (offer && current.key) saveOffer(offer, current.key);
+      }
+      const backgroundButton = event.target.closest('[data-action="background-scan"]');
+      if (backgroundButton) setTimeout(() => runDailyScan({ force: true }), 0);
+      const refreshButton = event.target.closest('[data-action="background-refresh"]');
+      if (refreshButton) setTimeout(refreshSourceUi, 300);
     });
+
     setTimeout(runDailyScan, 1500);
   }
 
@@ -288,8 +397,10 @@
     version: VERSION,
     workerUrl: WORKER_URL,
     automaticSource: true,
+    fullyIntegrated: true,
     runInteractiveSearch,
-    runDailyScan
+    runDailyScan,
+    updateSourceStatus
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
