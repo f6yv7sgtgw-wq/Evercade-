@@ -3,6 +3,17 @@ name: Build, publish and verify Project Evercade
 on:
   push:
     branches: [main]
+    paths:
+      - 'VERSION.json'
+      - 'index.html'
+      - 'styles.css'
+      - 'app.js'
+      - 'kleinanzeigen-client.js'
+      - 'eventlog.js'
+      - 'release.js'
+      - 'manifest.json'
+      - 'scripts/**'
+      - '.github/workflows/publish-gh-pages.yml'
   workflow_dispatch:
 
 permissions:
@@ -11,12 +22,13 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: project-evercade-pages
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
@@ -62,6 +74,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: build
     steps:
       - name: Deploy to GitHub Pages
@@ -70,6 +83,7 @@ jobs:
 
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 6
     needs: deploy
     steps:
       - name: Checkout verification scripts
