@@ -1,12 +1,12 @@
 {
-  "name": "Project Evercade 0.9.2",
-  "short_name": "Evercade 0.9.2",
+  "name": "Project Evercade 0.9.3",
+  "short_name": "Evercade 0.9.3",
   "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0b0d12",
   "theme_color": "#0b0d12",
-  "description": "Evercade-Sammlungsmanager mit täglicher Preisüberwachung und automatischer Kleinanzeigen-Suche über GenericParser 0.45",
-  "version": "0.9.2"
+  "description": "Evercade-Sammlungsmanager mit vollständig integrierter täglicher Kleinanzeigen-Suche über GenericParser 0.45",
+  "version": "0.9.3"
 }
