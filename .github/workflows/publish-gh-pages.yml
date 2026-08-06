@@ -24,8 +24,10 @@ jobs:
           set -euo pipefail
           node --check app.js
           node --check kleinanzeigen-client.js
-          node -e "const v=require('./VERSION.json'); if(v.version!=='0.9.5'||v.display_version!=='0.9.5') throw new Error('VERSION.json is not 0.9.5')"
-          grep -q "const VERSION='0.9.5'" kleinanzeigen-client.js
+          node --check hotfix-0.9.5.1.js
+          node -e "const v=require('./VERSION.json'); if(v.version!=='0.9.5.1'||v.display_version!=='0.9.5.1') throw new Error('VERSION.json is not 0.9.5.1')"
+          grep -q "const VERSION = '0.9.5'" kleinanzeigen-client.js
+          grep -q "const VERSION = '0.9.5.1'" hotfix-0.9.5.1.js
           grep -q "generic-parser-module-v1" kleinanzeigen-client.js
           grep -q "runDailyScan" kleinanzeigen-client.js
 
@@ -39,11 +41,16 @@ jobs:
             --exclude='.github/' \
             --exclude='public/' \
             ./ public/
+          sed -i '/hotfix-0\.9\.5\.1\.js/d' public/index.html
+          sed -i 's#</body>#  <script src="hotfix-0.9.5.1.js?v=0.9.5.1"></script>\n</body>#' public/index.html
+          sed -i 's/kleinanzeigen-client\.js?v=[^"]*/kleinanzeigen-client.js?v=0.9.5.1/g' public/index.html
           touch public/.nojekyll
           grep -q 'kleinanzeigen-client.js' public/index.html
+          grep -q 'hotfix-0.9.5.1.js?v=0.9.5.1' public/index.html
           test -f public/VERSION.json
           test -f public/app.js
           test -f public/kleinanzeigen-client.js
+          test -f public/hotfix-0.9.5.1.js
 
       - name: Publish gh-pages branch
         uses: peaceiris/actions-gh-pages@v4
