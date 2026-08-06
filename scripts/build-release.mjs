@@ -20,12 +20,20 @@ for (const asset of ['manifest.json', 'styles.css', 'app.js', 'kleinanzeigen-cli
   html = html.replace(new RegExp(`${escaped}(?:\\?v=[^"']*)?`, 'g'), `${asset}?v=${version}`);
 }
 
-// Remove every historical release/hotfix/eventlog injection, then add the current canonical pair once.
+// Remove every historical release/hotfix/eventlog injection, then add the canonical pair once.
 html = html.replace(/^\s*<script[^>]+src="(?:hotfix-[^"]+|release-[^"]+|eventlog\.js)[^"]*"[^>]*><\/script>\s*$/gm, '');
 const injection = `  <script src="eventlog.js?v=${version}"></script>\n  <script src="release.js?v=${version}"></script>\n`;
 html = html.replace('</body>', `${injection}</body>`);
-
 fs.writeFileSync(indexPath, html);
+
+// Normalize embedded module versions during the build so they can never drift.
+for (const file of ['eventlog.js', 'kleinanzeigen-client.js']) {
+  const filePath = path.join(targetDir, file);
+  let source = fs.readFileSync(filePath, 'utf8');
+  source = source.replace(/const VERSION\s*=\s*['"][^'"]+['"];/, `const VERSION = '${version}';`);
+  fs.writeFileSync(filePath, source);
+}
+
 fs.writeFileSync(path.join(targetDir, 'release.json'), JSON.stringify({
   product: versionFile.product,
   version,
@@ -48,6 +56,11 @@ const checks = [
 ];
 for (const value of checks) {
   if (!html.includes(value)) throw new Error(`Release HTML check failed: ${value}`);
+}
+
+for (const file of ['eventlog.js', 'kleinanzeigen-client.js']) {
+  const source = fs.readFileSync(path.join(targetDir, file), 'utf8');
+  if (!source.includes(`const VERSION = '${version}';`)) throw new Error(`${file} version normalization failed`);
 }
 
 console.log(`Built Project Evercade ${version} from VERSION.json`);
