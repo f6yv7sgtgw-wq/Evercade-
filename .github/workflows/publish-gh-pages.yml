@@ -1,4 +1,4 @@
-name: Deploy Project Evercade 0.9.5.2
+name: Deploy Project Evercade
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -15,40 +15,64 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  normalize-and-deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 6
     steps:
       - name: Checkout canonical main
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Verify canonical release consistency
-        shell: bash
+      - name: Normalize all release references
         run: |
           set -euo pipefail
-          test "$(node -p "require('./VERSION.json').version")" = "0.9.5.2"
-          grep -q 'meta name="app-version" content="0.9.5.2"' index.html
-          grep -q 'Version 0.9.5.2' index.html
-          grep -q 'manifest.json?v=0.9.5.2' index.html
-          grep -q 'styles.css?v=0.9.5.2' index.html
-          grep -q 'app.js?v=0.9.5.2' index.html
-          grep -q 'kleinanzeigen-client.js?v=0.9.5.2' index.html
-          grep -q 'eventlog.js?v=0.9.5.2' index.html
-          grep -q 'release.js?v=0.9.5.2' index.html
-          grep -q '"version": "0.9.5.2"' manifest.json
-          grep -q '"version": "0.9.5.2"' release.json
-          grep -q "const VERSION = '0.9.5.2'" eventlog.js
-          grep -q 'Eventlog öffnen' release.js
+          node scripts/normalize-release.mjs
+          node --check config.js
           node --check app.js
           node --check kleinanzeigen-client.js
           node --check eventlog.js
           node --check release.js
 
+      - name: Verify forward and backward consistency
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./VERSION.json').version")
+          test "$(node -p "require('./VERSION.json').display_version")" = "$version"
+          test "$(node -p "require('./manifest.json').version")" = "$version"
+          test "$(node -p "require('./release.json').version")" = "$version"
+          grep -q "meta name=\"app-version\" content=\"${version}\"" index.html
+          for asset in manifest.json styles.css config.js app.js kleinanzeigen-client.js eventlog.js release.js; do
+            grep -q "${asset}?v=${version}" index.html
+          done
+          grep -q 'ProjectEvercadeConfig?.version' eventlog.js
+          grep -q 'ProjectEvercadeConfig?.version' kleinanzeigen-client.js
+          grep -q 'ProjectEvercadeConfig?.genericParserWorkerUrl' kleinanzeigen-client.js
+          grep -q 'ProjectEvercadeConfig?.dealApiUrl' app.js
+          test ! -e .github/workflows/integrate-kleinanzeigen.yml
+          test ! -e hotfix-0.9.5.1.js
+          test ! -e release-0.9.5.2.js
+          test ! -e VERSION_TEST.json
+          ! grep -RInE "const VERSION *= *['\"]0\.9\.|Version 0\.9\.[0-4]|\?v=0\.9\.[0-4]" \
+            --include='*.js' --include='*.html' \
+            --exclude-dir='docs' --exclude-dir='release' .
+
+      - name: Commit normalized canonical source
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if ! git diff --cached --quiet; then
+            version=$(node -p "require('./VERSION.json').version")
+            git commit -m "Normalize Project Evercade ${version} release sources [normalized]"
+            git push origin HEAD:main
+          fi
+
       - name: Prepare immutable Pages artifact
-        shell: bash
         run: |
           set -euo pipefail
           rm -rf public
@@ -58,6 +82,8 @@ jobs:
             --exclude='.github/' \
             --exclude='public/' \
             --exclude='scripts/' \
+            --exclude='docs/' \
+            --exclude='release/' \
             --exclude='release-requests/' \
             ./ public/
           touch public/.nojekyll
@@ -73,5 +99,3 @@ jobs:
       - name: Deploy exact release artifact
         id: deployment
         uses: actions/deploy-pages@v4
-
-# deployment trigger: 2026-08-06T23:38+02:00
