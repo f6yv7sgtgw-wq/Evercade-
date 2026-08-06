@@ -1,0 +1,27 @@
+{
+  "product": "Project Evercade",
+  "version": "0.9.2",
+  "channel": "stable",
+  "release_date": "2026-08-06",
+  "repository": "f6yv7sgtgw-wq/Evercade-",
+  "pages_url": "https://f6yv7sgtgw-wq.github.io/Evercade-/",
+  "generic_parser": {
+    "version": "0.45.0",
+    "contract": "generic-parser-module-v1",
+    "worker_url": "https://genericparser.f6yv7sgtgw.workers.dev",
+    "authentication_required": false,
+    "source": "kleinanzeigen",
+    "automatic": true,
+    "interactive_max_packets": 4,
+    "packet_pause_seconds": 5,
+    "daily_scan": true
+  },
+  "price_search": {
+    "full_scan_interval_hours": 24,
+    "existing_sources_retained": true,
+    "automatic_sources": 10,
+    "direct_search_sources": 12,
+    "total_sources": 22
+  },
+  "status": "published-pending-pages-verification"
+}
