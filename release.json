@@ -1,0 +1,7 @@
+{
+  "product": "Project Evercade",
+  "version": "0.9.5.2",
+  "status": "published-from-main",
+  "eventlog": true,
+  "generic_parser_contract": "generic-parser-module-v1"
+}
