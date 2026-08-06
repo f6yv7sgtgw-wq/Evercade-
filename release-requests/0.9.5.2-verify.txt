@@ -1,0 +1,2 @@
+Build, publish and verify Project Evercade 0.9.5.2
+Requested: 2026-08-06T17:55:00+02:00
