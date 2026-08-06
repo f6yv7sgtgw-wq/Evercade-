@@ -9,7 +9,6 @@ on:
       - styles.css
       - app.js
       - app-0.9.4.js
-      - app-0.9.4.1.js
       - version-runtime.js
       - manifest.json
       - VERSION.json
@@ -46,12 +45,11 @@ jobs:
           set -euo pipefail
           node --check app.js
           node --check app-0.9.4.js
-          node --check app-0.9.4.1.js
           node --check version-runtime.js
           python -m json.tool manifest.json >/dev/null
           python -m json.tool VERSION.json >/dev/null
           grep -q 'display_version' VERSION.json
-          grep -q "fetch(\`VERSION.json?ts=" version-runtime.js
+          grep -q 'VERSION.json?ts=' version-runtime.js
           grep -q 'EvercadeRelease' version-runtime.js
           grep -q '/api/module/v1/search' app-0.9.4.js
 
@@ -61,7 +59,7 @@ jobs:
           set -euo pipefail
           rm -rf _site
           mkdir -p _site
-          cp index.html styles.css app.js app-0.9.4.js app-0.9.4.1.js version-runtime.js manifest.json VERSION.json _site/
+          cp index.html styles.css app.js app-0.9.4.js version-runtime.js manifest.json VERSION.json _site/
           if [ -d integrations ]; then cp -R integrations _site/; fi
           if [ -d docs ]; then cp -R docs _site/; fi
 
@@ -70,7 +68,7 @@ jobs:
           import json, re
 
           release = json.loads(Path('VERSION.json').read_text(encoding='utf-8'))
-          version = str(release.get('display_version') or release.get('version') or '0.9.4')
+          version = str(release.get('display_version') or release.get('version') or '0.9.4.2')
           path = Path('_site/index.html')
           text = path.read_text(encoding='utf-8')
 
@@ -78,7 +76,6 @@ jobs:
           text = re.sub(r'([?&]v=)0\.9(?:\.\d+)*(?:-[A-Za-z0-9.-]+)?', rf'\g<1>{version}', text)
           scripts = (
               f'  <script src="app-0.9.4.js?v={version}"></script>\n'
-              f'  <script src="app-0.9.4.1.js?v={version}"></script>\n'
               f'  <script src="version-runtime.js?v={version}"></script>\n'
           )
           text = text.replace('</body>', scripts + '</body>')
@@ -86,7 +83,8 @@ jobs:
           PY
 
           grep -q 'version-runtime.js?v=' _site/index.html
-          grep -q 'VERSION.json?ts=' _site/version-runtime.js
+          grep -q 'app-0.9.4.js?v=' _site/index.html
+          ! grep -q 'app-0.9.4.1.js' _site/index.html
           touch _site/.nojekyll
 
       - name: Upload Pages artifact
