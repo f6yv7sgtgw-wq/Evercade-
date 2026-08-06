@@ -1,8 +1,7 @@
 {
   "product": "Project Evercade",
-  "version": "0.9.2",
-  "build": 2,
-  "display_version": "0.9.2 Build 2",
+  "version": "0.9.3",
+  "display_version": "0.9.3",
   "channel": "test",
   "release_date": "2026-08-06",
   "repository": "f6yv7sgtgw-wq/Evercade-",
@@ -14,7 +13,9 @@
     "authentication_required": false,
     "source": "kleinanzeigen",
     "automatic": true,
-    "source_status_integrated": true,
+    "fully_integrated": true,
+    "shared_source_status": true,
+    "shared_monitor_observations": true,
     "interactive_max_packets": 4,
     "packet_pause_seconds": 5,
     "daily_scan": true
@@ -28,9 +29,11 @@
   },
   "consistency": {
     "visible_source_list_includes_kleinanzeigen": true,
+    "source_status_survives_render": true,
     "source_status_persisted": true,
-    "source_counts_normalized": true,
-    "pages_build_validates_build2": true
+    "worker_errors_visible": true,
+    "results_merged_into_monitor": true,
+    "source_counts_normalized": true
   },
-  "status": "published-test-build-pending-user-verification"
+  "status": "published-test-pending-user-verification"
 }
