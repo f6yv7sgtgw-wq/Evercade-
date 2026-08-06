@@ -1,12 +1,12 @@
 {
   "product": "Project Evercade",
-  "version": "0.9.5",
-  "display_version": "0.9.5",
-  "channel": "test",
+  "version": "0.9.5.1",
+  "display_version": "0.9.5.1",
+  "channel": "hotfix",
   "release_date": "2026-08-06",
   "repository": "f6yv7sgtgw-wq/Evercade-",
   "pages_url": "https://f6yv7sgtgw-wq.github.io/Evercade-/",
-  "base_version": "0.9.4",
+  "base_version": "0.9.5",
   "generic_parser": {
     "version": "0.45.0",
     "contract": "generic-parser-module-v1",
@@ -29,6 +29,7 @@
   "architecture": {
     "single_pages_deployment": true,
     "loaded_module": "kleinanzeigen-client.js",
+    "hotfix_layer": "hotfix-0.9.5.1.js",
     "server_snapshot_merge": true,
     "background_scan_hook": true,
     "background_refresh_capture_hook": true,
@@ -36,10 +37,9 @@
     "persistent_diagnostic_log": true
   },
   "fixes": [
-    "The server-side refresh button now directly starts the Kleinanzeigen browser scan.",
-    "Kleinanzeigen progress and errors are persisted and shown in the source status.",
-    "Worker capability checks tolerate missing optional metadata but reject incompatible contracts.",
-    "A diagnostic event log with the last 200 events is available through EvercadeKleinanzeigen.getLog()."
+    "The gh-pages workflow now deploys the current repository instead of validating legacy 0.9.4.1 files.",
+    "A dedicated 0.9.5.1 hotfix layer makes the deployed version unambiguous and cache-bustable.",
+    "The Kleinanzeigen scan behavior from 0.9.5 remains unchanged."
   ],
-  "status": "published-pending-live-test"
+  "status": "hotfix-deployment-triggered"
 }
