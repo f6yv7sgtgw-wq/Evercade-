@@ -1,4 +1,4 @@
-name: Deploy Project Evercade 0.9.4.2 to GitHub Pages
+name: Deploy Project Evercade from VERSION.json
 
 on:
   push:
@@ -10,6 +10,7 @@ on:
       - app.js
       - app-0.9.4.js
       - app-0.9.4.1.js
+      - version-runtime.js
       - manifest.json
       - VERSION.json
       - integrations/**
@@ -39,18 +40,19 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      - name: Validate integrated application
+      - name: Validate application and release metadata
         shell: bash
         run: |
           set -euo pipefail
           node --check app.js
           node --check app-0.9.4.js
           node --check app-0.9.4.1.js
+          node --check version-runtime.js
           python -m json.tool manifest.json >/dev/null
           python -m json.tool VERSION.json >/dev/null
-          grep -q "const VERSION = '0.9.4'" app-0.9.4.js
-          grep -q "const VERSION = '0.9.4.2'" app-0.9.4.1.js
-          grep -q 'EvercadeKleinanzeigen094' app-0.9.4.1.js
+          grep -q 'display_version' VERSION.json
+          grep -q "fetch(\`VERSION.json?ts=" version-runtime.js
+          grep -q 'EvercadeRelease' version-runtime.js
           grep -q '/api/module/v1/search' app-0.9.4.js
 
       - name: Build static artifact
@@ -59,29 +61,32 @@ jobs:
           set -euo pipefail
           rm -rf _site
           mkdir -p _site
-          cp index.html styles.css app.js app-0.9.4.js app-0.9.4.1.js manifest.json VERSION.json _site/
+          cp index.html styles.css app.js app-0.9.4.js app-0.9.4.1.js version-runtime.js manifest.json VERSION.json _site/
           if [ -d integrations ]; then cp -R integrations _site/; fi
           if [ -d docs ]; then cp -R docs _site/; fi
 
           python - <<'PY'
           from pathlib import Path
-          import re
+          import json, re
+
+          release = json.loads(Path('VERSION.json').read_text(encoding='utf-8'))
+          version = str(release.get('display_version') or release.get('version') or '0.9.4')
           path = Path('_site/index.html')
           text = path.read_text(encoding='utf-8')
-          text = re.sub(r'Version 0\.9(?:\.\d+)*(?: Build 2)?', 'Version 0.9.4.2', text)
-          text = re.sub(r'([?&]v=)0\.9(?:\.\d+)*(?:-[A-Za-z0-9.-]+)?', r'\g<1>0.9.4.2', text)
-          text = re.sub(r'^.*(?:kleinanzeigen-client|kleinanzeigen-build2|app-0\.9\.4(?:\.1)?)\.js.*\n?', '', text, flags=re.MULTILINE)
-          scripts = '  <script src="app-0.9.4.js?v=0.9.4.2"></script>\n  <script src="app-0.9.4.1.js?v=0.9.4.2"></script>\n'
+
+          text = re.sub(r'^.*(?:kleinanzeigen-client|kleinanzeigen-build2|app-0\.9\.4(?:\.1)?|version-runtime)\.js.*\n?', '', text, flags=re.MULTILINE)
+          text = re.sub(r'([?&]v=)0\.9(?:\.\d+)*(?:-[A-Za-z0-9.-]+)?', rf'\g<1>{version}', text)
+          scripts = (
+              f'  <script src="app-0.9.4.js?v={version}"></script>\n'
+              f'  <script src="app-0.9.4.1.js?v={version}"></script>\n'
+              f'  <script src="version-runtime.js?v={version}"></script>\n'
+          )
           text = text.replace('</body>', scripts + '</body>')
           path.write_text(text, encoding='utf-8')
           PY
 
-          grep -q 'Version 0.9.4.2' _site/index.html
-          grep -q 'app.js?v=0.9.4.2' _site/index.html
-          grep -q 'app-0.9.4.js?v=0.9.4.2' _site/index.html
-          grep -q 'app-0.9.4.1.js?v=0.9.4.2' _site/index.html
-          ! grep -q 'Version 0.9.3' _site/index.html
-          ! grep -q '0.9.4.2.2' _site/index.html
+          grep -q 'version-runtime.js?v=' _site/index.html
+          grep -q 'VERSION.json?ts=' _site/version-runtime.js
           touch _site/.nojekyll
 
       - name: Upload Pages artifact
