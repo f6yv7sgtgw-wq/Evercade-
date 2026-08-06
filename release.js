@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = document.querySelector('meta[name="app-version"]')?.content || 'unknown';
+  let VERSION = document.querySelector('meta[name="app-version"]')?.content || 'unknown';
 
   function applyVersion() {
     document.querySelectorAll('.version-badge').forEach(node => { node.textContent = `Version ${VERSION}`; });
@@ -9,6 +9,20 @@
       if (/^Version\s/i.test(node.textContent || '')) node.textContent = `Version ${VERSION}`;
     });
     document.documentElement.dataset.evercadeVersion = VERSION;
+  }
+
+  async function loadCanonicalVersion() {
+    try {
+      const response = await fetch(`VERSION.json?runtime=${Date.now()}`, { cache: 'no-store' });
+      if (!response.ok) throw new Error(`VERSION.json HTTP ${response.status}`);
+      const release = await response.json();
+      const canonical = String(release?.version || release?.display_version || '').trim();
+      if (canonical) VERSION = canonical;
+    } catch (error) {
+      console.warn('[Project Evercade] canonical version lookup failed', error);
+    }
+    applyVersion();
+    if (window.ProjectEvercadeRelease) window.ProjectEvercadeRelease.version = VERSION;
   }
 
   function openLog() {
@@ -52,15 +66,16 @@
     }
   }
 
-  function boot() {
+  async function boot() {
     applyVersion();
+    await loadCanonicalVersion();
     installLogAccess();
     setTimeout(installLogAccess, 500);
-    removeLegacyCachesOnce();
+    await removeLegacyCachesOnce();
     window.EvercadeEventLog?.log?.('info', 'release-loaded', { version: VERSION, logAccess: 'menu-and-tab' });
   }
 
-  window.ProjectEvercadeRelease = { version: VERSION, openLog, installLogAccess };
+  window.ProjectEvercadeRelease = { version: VERSION, openLog, installLogAccess, reloadVersion: loadCanonicalVersion };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
 })();
