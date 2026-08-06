@@ -1,0 +1,31 @@
+{
+  "product": "Project Evercade",
+  "version": "0.9.2-test1",
+  "channel": "test",
+  "stable": false,
+  "release_date": "2026-08-06",
+  "base_commit": "9502e843045ee5e8d833ed8ee090a46a4ce03a03",
+  "release_notes": "docs/releases/0.9.2-test1.md",
+  "pages_url": "https://f6yv7sgtgw-wq.github.io/Evercade-/",
+  "source_archive": "https://github.com/f6yv7sgtgw-wq/Evercade-/archive/refs/heads/release-0.9.2-test1.zip",
+  "generic_parser": {
+    "version": "0.45.0",
+    "contract": "generic-parser-module-v1",
+    "worker_url": "https://genericparser.f6yv7sgtgw.workers.dev",
+    "authentication": "none"
+  },
+  "features": {
+    "interactive_kleinanzeigen_search": true,
+    "daily_browser_scan": true,
+    "token_required": false,
+    "existing_search_sources_preserved": true,
+    "parser_score_visible": true,
+    "parser_traffic_light_visible": true
+  },
+  "known_limitations": [
+    "daily scan only runs while the web app is opened",
+    "shipping costs are not reliably included",
+    "network and upstream failures may skip individual cartridges",
+    "test release not yet approved as stable"
+  ]
+}
