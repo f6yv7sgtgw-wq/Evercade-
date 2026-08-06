@@ -1,12 +1,12 @@
 {
   "product": "Project Evercade",
-  "version": "0.9.4",
-  "display_version": "0.9.4",
+  "version": "0.9.5",
+  "display_version": "0.9.5",
   "channel": "test",
   "release_date": "2026-08-06",
   "repository": "f6yv7sgtgw-wq/Evercade-",
   "pages_url": "https://f6yv7sgtgw-wq.github.io/Evercade-/",
-  "base_version": "0.9.3",
+  "base_version": "0.9.4",
   "generic_parser": {
     "version": "0.45.0",
     "contract": "generic-parser-module-v1",
@@ -17,7 +17,8 @@
     "interactive_max_packets": 4,
     "daily_packet_count_per_cartridge": 1,
     "packet_pause_seconds": 5,
-    "full_scan_interval_hours": 24
+    "full_scan_interval_hours": 24,
+    "manual_server_check_triggers_browser_scan": true
   },
   "price_search": {
     "existing_sources_retained": true,
@@ -28,11 +29,17 @@
   "architecture": {
     "single_pages_deployment": true,
     "loaded_module": "kleinanzeigen-client.js",
-    "mutation_observer": false,
-    "render_hook": false,
     "server_snapshot_merge": true,
     "background_scan_hook": true,
-    "results_merged_into_monitor": true
+    "background_refresh_capture_hook": true,
+    "results_merged_into_monitor": true,
+    "persistent_diagnostic_log": true
   },
-  "status": "clean-rebuild-published-pending-user-test"
+  "fixes": [
+    "The server-side refresh button now directly starts the Kleinanzeigen browser scan.",
+    "Kleinanzeigen progress and errors are persisted and shown in the source status.",
+    "Worker capability checks tolerate missing optional metadata but reject incompatible contracts.",
+    "A diagnostic event log with the last 200 events is available through EvercadeKleinanzeigen.getLog()."
+  ],
+  "status": "published-pending-live-test"
 }
