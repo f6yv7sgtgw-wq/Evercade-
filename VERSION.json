@@ -1,12 +1,12 @@
 {
   "product": "Project Evercade",
-  "version": "0.9.5.1",
-  "display_version": "0.9.5.1",
-  "channel": "hotfix",
+  "version": "0.9.5.2",
+  "display_version": "0.9.5.2",
+  "channel": "diagnostic-hotfix",
   "release_date": "2026-08-06",
   "repository": "f6yv7sgtgw-wq/Evercade-",
   "pages_url": "https://f6yv7sgtgw-wq.github.io/Evercade-/",
-  "base_version": "0.9.5",
+  "base_version": "0.9.5.1",
   "generic_parser": {
     "version": "0.45.0",
     "contract": "generic-parser-module-v1",
@@ -30,16 +30,20 @@
     "single_pages_deployment": true,
     "loaded_module": "kleinanzeigen-client.js",
     "hotfix_layer": "hotfix-0.9.5.1.js",
+    "eventlog_module": "eventlog.js",
     "server_snapshot_merge": true,
     "background_scan_hook": true,
     "background_refresh_capture_hook": true,
     "results_merged_into_monitor": true,
-    "persistent_diagnostic_log": true
+    "persistent_diagnostic_log": true,
+    "eventlog_max_entries": 1000
   },
-  "fixes": [
-    "The gh-pages workflow now deploys the current repository instead of validating legacy 0.9.4.1 files.",
-    "A dedicated 0.9.5.1 hotfix layer makes the deployed version unambiguous and cache-bustable.",
-    "The Kleinanzeigen scan behavior from 0.9.5 remains unchanged."
+  "features": [
+    "Dedicated Eventlog page available through the main navigation.",
+    "Logs user actions, fetch requests, response status, duration, browser errors, unhandled promise rejections, network changes and visibility changes.",
+    "Includes existing Kleinanzeigen diagnostic events in exported JSON.",
+    "Supports filtering, text search, copy, JSON export and local deletion.",
+    "All diagnostic data remains in the local browser until exported by the user."
   ],
-  "status": "hotfix-deployment-triggered"
+  "status": "deployment-triggered"
 }
