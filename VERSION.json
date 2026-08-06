@@ -29,7 +29,7 @@
   "architecture": {
     "single_pages_deployment": true,
     "loaded_module": "kleinanzeigen-client.js",
-    "hotfix_layer": "hotfix-0.9.5.1.js",
+    "release_layer": "release-0.9.5.2.js",
     "eventlog_module": "eventlog.js",
     "server_snapshot_merge": true,
     "background_scan_hook": true,
@@ -45,5 +45,5 @@
     "Supports filtering, text search, copy, JSON export and local deletion.",
     "All diagnostic data remains in the local browser until exported by the user."
   ],
-  "status": "deployment-triggered"
+  "status": "final-deployment-retriggered"
 }
