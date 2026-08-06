@@ -3,7 +3,7 @@
   "version": "0.9.5.2.1",
   "display_version": "0.9.5.2.1",
   "channel": "stable",
-  "release_date": "2026-08-06",
+  "release_date": "2026-08-07",
   "repository": "f6yv7sgtgw-wq/Evercade-",
   "pages_url": "https://f6yv7sgtgw-wq.github.io/Evercade-/",
   "base_version": "0.9.5.2",
@@ -28,7 +28,9 @@
   },
   "architecture": {
     "single_pages_deployment": true,
-    "deployment_source": "github-actions-pages-artifact",
+    "deployment_source": "main-root-branch",
+    "publishing_branch": "main",
+    "publishing_folder": "/",
     "loaded_module": "kleinanzeigen-client.js",
     "release_layer": "release.js",
     "eventlog_module": "eventlog.js",
@@ -43,9 +45,9 @@
   },
   "features": [
     "Dedicated Eventlog page available through the main navigation and data menu.",
-    "Runtime modules read the release version from the HTML app-version metadata.",
+    "Runtime modules read the release version from VERSION.json and HTML app-version metadata.",
     "Service endpoints are provided through the central ProjectEvercadeConfig object.",
-    "GitHub Pages is deployed only through the canonical Actions artifact workflow."
+    "GitHub Pages publishes the normalized site from main / (root)."
   ],
-  "status": "ready-for-deployment"
+  "status": "ready-for-branch-publishing"
 }
