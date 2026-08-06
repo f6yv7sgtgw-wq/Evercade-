@@ -1,4 +1,4 @@
-name: Publish Project Evercade to gh-pages
+name: Build, publish and verify Project Evercade
 
 on:
   push:
@@ -9,32 +9,32 @@ permissions:
   contents: write
 
 concurrency:
-  group: evercade-gh-pages
+  group: evercade-release
   cancel-in-progress: true
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
 
-      - name: Validate source
+      - name: Validate source JavaScript
         run: |
           set -euo pipefail
           node --check app.js
           node --check kleinanzeigen-client.js
           node --check eventlog.js
-          node --check release-0.9.5.2.js
-          node -e "const v=require('./VERSION.json'); if(v.version!=='0.9.5.2'||v.display_version!=='0.9.5.2') throw new Error('VERSION.json is not 0.9.5.2')"
-          grep -q "const VERSION = '0.9.5.2'" eventlog.js
-          grep -q "const VERSION = '0.9.5.2'" release-0.9.5.2.js
-          grep -q "EvercadeEventLog" eventlog.js
-          grep -q "Eventlog öffnen" release-0.9.5.2.js
+          node --check release.js
+          node --check scripts/build-release.mjs
+          node --check scripts/verify-live-release.mjs
+          node -e "const v=require('./VERSION.json'); if(!v.version || v.display_version!==v.version) throw new Error('VERSION.json is inconsistent')"
           grep -q "generic-parser-module-v1" kleinanzeigen-client.js
-          grep -q "runDailyScan" kleinanzeigen-client.js
+          grep -q "EvercadeEventLog" eventlog.js
+          grep -q "Eventlog öffnen" release.js
 
-      - name: Build branch content
+      - name: Build release from VERSION.json
         run: |
           set -euo pipefail
           rm -rf public
@@ -43,26 +43,19 @@ jobs:
             --exclude='.git/' \
             --exclude='.github/' \
             --exclude='public/' \
+            --exclude='scripts/' \
             ./ public/
-          sed -i '/hotfix-0\.9\.5\.1\.js/d; /eventlog\.js/d; /release-0\.9\.5\.2\.js/d' public/index.html
-          sed -i 's#</body>#  <script src="eventlog.js?v=0.9.5.2-final"></script>\n  <script src="release-0.9.5.2.js?v=0.9.5.2-final"></script>\n</body>#' public/index.html
-          sed -i 's/kleinanzeigen-client\.js?v=[^"]*/kleinanzeigen-client.js?v=0.9.5.2-final/g' public/index.html
-          sed -i 's/app\.js?v=[^"]*/app.js?v=0.9.5.2-final/g; s/styles\.css?v=[^"]*/styles.css?v=0.9.5.2-final/g; s/manifest\.json?v=[^"]*/manifest.json?v=0.9.5.2-final/g' public/index.html
-          sed -i 's/Version 0\.9\.[0-9.]*/Version 0.9.5.2/g' public/index.html
+          node scripts/build-release.mjs public
           touch public/.nojekyll
-          grep -q 'Version 0.9.5.2' public/index.html
-          grep -q 'eventlog.js?v=0.9.5.2-final' public/index.html
-          grep -q 'release-0.9.5.2.js?v=0.9.5.2-final' public/index.html
-          test -f public/VERSION.json
-          test -f public/app.js
-          test -f public/kleinanzeigen-client.js
-          test -f public/eventlog.js
-          test -f public/release-0.9.5.2.js
 
-      - name: Publish gh-pages branch
+      - name: Publish immutable gh-pages release
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
           publish_branch: gh-pages
           force_orphan: true
+          enable_jekyll: false
+
+      - name: Verify live GitHub Pages release
+        run: node scripts/verify-live-release.mjs
