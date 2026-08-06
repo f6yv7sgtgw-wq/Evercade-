@@ -73,3 +73,5 @@ jobs:
       - name: Deploy exact release artifact
         id: deployment
         uses: actions/deploy-pages@v4
+
+# deployment trigger: 2026-08-06T23:38+02:00
