@@ -1,4 +1,4 @@
-name: Deploy Project Evercade
+name: Normalize Project Evercade release
 
 on:
   workflow_dispatch:
@@ -6,36 +6,37 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: project-evercade-pages
+  group: project-evercade-main-normalization
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  normalize:
+    if: ${{ github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[normalized]') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 5
     steps:
-      - name: Checkout canonical main
+      - name: Checkout main
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Normalize release in build workspace
+      - name: Normalize canonical release files
+        shell: bash
         run: |
           set -euo pipefail
           node scripts/normalize-release.mjs
+          touch .nojekyll
           node --check config.js
           node --check app.js
           node --check kleinanzeigen-client.js
           node --check eventlog.js
           node --check release.js
 
-      - name: Verify forward and backward consistency
+      - name: Verify branch-published release consistency
+        shell: bash
         run: |
           set -euo pipefail
           version=$(node -p "require('./VERSION.json').version")
@@ -43,9 +44,11 @@ jobs:
           test "$(node -p "require('./manifest.json').version")" = "$version"
           test "$(node -p "require('./release.json').version")" = "$version"
           grep -q "meta name=\"app-version\" content=\"${version}\"" index.html
+          grep -q "Version ${version}" index.html
           for asset in manifest.json styles.css config.js app.js kleinanzeigen-client.js eventlog.js release.js; do
             test "$(grep -o "${asset}?v=${version}" index.html | wc -l | tr -d ' ')" = "1"
           done
+          test -f .nojekyll
           grep -q 'ProjectEvercadeConfig?.version' eventlog.js
           grep -q 'ProjectEvercadeConfig?.version' kleinanzeigen-client.js
           grep -q 'ProjectEvercadeConfig?.genericParserWorkerUrl' kleinanzeigen-client.js
@@ -54,59 +57,18 @@ jobs:
           test ! -e hotfix-0.9.5.1.js
           test ! -e release-0.9.5.2.js
           test ! -e VERSION_TEST.json
-          ! grep -RInE "const VERSION *= *['\"]0\.9\.|Version 0\.9\.[0-4]|\?v=0\.9\.[0-4]" \
-            --include='*.js' --include='*.html' \
-            --exclude-dir='docs' --exclude-dir='release' .
 
-      - name: Prepare immutable Pages artifact
+      - name: Commit normalized site to main
+        shell: bash
         run: |
           set -euo pipefail
-          rm -rf public
-          mkdir public
-          rsync -a \
-            --exclude='.git/' \
-            --exclude='.github/' \
-            --exclude='public/' \
-            --exclude='scripts/' \
-            --exclude='docs/' \
-            --exclude='release/' \
-            --exclude='release-requests/' \
-            ./ public/
-          touch public/.nojekyll
-
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload exact release artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: public
-
-      - name: Deploy exact release artifact
-        id: deployment
-        uses: actions/deploy-pages@v4
-
-      - name: Verify public Pages release
-        env:
-          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
-        run: |
-          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'Canonical site already normalized.'
+            exit 0
+          fi
           version=$(node -p "require('./VERSION.json').version")
-          base="${PAGE_URL%/}/"
-          success=0
-          for attempt in $(seq 1 24); do
-            stamp=$(date +%s)
-            html=$(curl --fail --silent --show-error --location --max-time 20 "${base}?verify=${stamp}" || true)
-            release=$(curl --fail --silent --show-error --location --max-time 20 "${base}release.json?verify=${stamp}" || true)
-            if grep -q "meta name=\"app-version\" content=\"${version}\"" <<<"$html" \
-              && grep -q "config.js?v=${version}" <<<"$html" \
-              && grep -q "eventlog.js?v=${version}" <<<"$html" \
-              && grep -q "\"version\": \"${version}\"" <<<"$release"; then
-              echo "Public Project Evercade ${version} verified at ${base}"
-              success=1
-              break
-            fi
-            echo "Waiting for public Pages propagation (${attempt}/24) ..."
-            sleep 10
-          done
-          test "$success" = "1"
+          git commit -m "Publish Project Evercade ${version} from main root [normalized]"
+          git push origin HEAD:main
