@@ -1,15 +1,15 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.9.5';
+  const VERSION = document.querySelector('meta[name="app-version"]')?.content || '0.9.5.2';
   const CONTRACT = 'generic-parser-module-v1';
   const SOURCE = 'Kleinanzeigen';
   const WORKER = 'https://genericparser.f6yv7sgtgw.workers.dev';
   const DAY = 24 * 60 * 60 * 1000;
   const PAUSE = 5000;
-  const DAILY_KEY = 'evercade-ka-v095-daily';
-  const STATUS_KEY = 'evercade-ka-v095-status';
-  const LOG_KEY = 'evercade-ka-v095-log';
+  const DAILY_KEY = 'evercade-ka-v0952-daily';
+  const STATUS_KEY = 'evercade-ka-v0952-status';
+  const LOG_KEY = 'evercade-ka-v0952-log';
   const $ = selector => document.querySelector(selector);
   const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -26,7 +26,7 @@
     try { log = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch {}
     log.push(entry);
     localStorage.setItem(LOG_KEY, JSON.stringify(log.slice(-200)));
-    console.info('[Evercade 0.9.5][Kleinanzeigen]', event, details);
+    console.info(`[Evercade ${VERSION}][Kleinanzeigen]`, event, details);
   }
 
   function storedStatus() {
@@ -326,24 +326,24 @@
   }
 
   function installHooks() {
-    if (typeof applyBackgroundSnapshot === 'function' && !applyBackgroundSnapshot.__ka095) {
+    if (typeof applyBackgroundSnapshot === 'function' && !applyBackgroundSnapshot.__ka0952) {
       const original = applyBackgroundSnapshot;
       applyBackgroundSnapshot = function (...args) {
         const result = original.apply(this, args);
         restoreStatus();
         return result;
       };
-      applyBackgroundSnapshot.__ka095 = true;
+      applyBackgroundSnapshot.__ka0952 = true;
     }
 
-    if (typeof runBackgroundScan === 'function' && !runBackgroundScan.__ka095) {
+    if (typeof runBackgroundScan === 'function' && !runBackgroundScan.__ka0952) {
       const original = runBackgroundScan;
       runBackgroundScan = async function (...args) {
         const result = await original.apply(this, args);
         await runDailyScan({ force: true, silent: false });
         return result;
       };
-      runBackgroundScan.__ka095 = true;
+      runBackgroundScan.__ka0952 = true;
     }
   }
 
