@@ -1,11 +1,12 @@
 {
   "product": "Project Evercade",
-  "version": "0.9.4.2",
-  "display_version": "0.9.4.2",
+  "version": "0.9.4",
+  "display_version": "0.9.4",
   "channel": "test",
   "release_date": "2026-08-06",
   "repository": "f6yv7sgtgw-wq/Evercade-",
   "pages_url": "https://f6yv7sgtgw-wq.github.io/Evercade-/",
+  "base_version": "0.9.3",
   "generic_parser": {
     "version": "0.45.0",
     "contract": "generic-parser-module-v1",
@@ -13,30 +14,25 @@
     "authentication_required": false,
     "source": "kleinanzeigen",
     "automatic": true,
-    "shared_source_status": true,
-    "shared_monitor_observations": true,
-    "server_snapshot_merge": true,
-    "background_scan_hook": true,
     "interactive_max_packets": 4,
+    "daily_packet_count_per_cartridge": 1,
     "packet_pause_seconds": 5,
-    "daily_scan": true
+    "full_scan_interval_hours": 24
   },
   "price_search": {
-    "full_scan_interval_hours": 24,
     "existing_sources_retained": true,
-    "automatic_sources": 11,
+    "automatic_sources": 10,
     "direct_search_sources": 12,
-    "total_sources": 23
+    "total_sources": 22
   },
-  "consistency": {
-    "visible_source_list_includes_kleinanzeigen": true,
-    "source_count_derived_from_state": true,
-    "server_refresh_preserves_kleinanzeigen": true,
-    "worker_errors_visible": true,
-    "results_merged_into_monitor": true,
-    "legacy_parallel_scripts_removed_from_pages": true,
-    "mutation_hotfix_removed_from_pages": true
+  "architecture": {
+    "single_pages_deployment": true,
+    "loaded_module": "kleinanzeigen-client.js",
+    "mutation_observer": false,
+    "render_hook": false,
+    "server_snapshot_merge": true,
+    "background_scan_hook": true,
+    "results_merged_into_monitor": true
   },
-  "limitation": "The existing project-evercade-deal-api backend is not stored in an accessible GitHub repository. GenericParser therefore runs from the Evercade application and is merged after every server snapshot; unattended execution still depends on the existing external automation service.",
-  "status": "published-test-pending-user-verification"
+  "status": "clean-rebuild-published-pending-user-test"
 }
