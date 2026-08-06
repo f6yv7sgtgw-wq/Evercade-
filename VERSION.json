@@ -1,12 +1,12 @@
 {
   "product": "Project Evercade",
-  "version": "0.9.5.2",
-  "display_version": "0.9.5.2",
-  "channel": "diagnostic-hotfix",
+  "version": "0.9.5.2.1",
+  "display_version": "0.9.5.2.1",
+  "channel": "stable",
   "release_date": "2026-08-06",
   "repository": "f6yv7sgtgw-wq/Evercade-",
   "pages_url": "https://f6yv7sgtgw-wq.github.io/Evercade-/",
-  "base_version": "0.9.5",
+  "base_version": "0.9.5.2",
   "generic_parser": {
     "version": "0.45.0",
     "contract": "generic-parser-module-v1",
@@ -32,6 +32,8 @@
     "loaded_module": "kleinanzeigen-client.js",
     "release_layer": "release.js",
     "eventlog_module": "eventlog.js",
+    "runtime_config": "config.js",
+    "version_source": "VERSION.json",
     "server_snapshot_merge": true,
     "background_scan_hook": true,
     "background_refresh_capture_hook": true,
@@ -41,10 +43,9 @@
   },
   "features": [
     "Dedicated Eventlog page available through the main navigation and data menu.",
-    "Logs user actions, fetch requests, response status, duration, browser errors, unhandled promise rejections, network changes and visibility changes.",
-    "Includes Kleinanzeigen diagnostic events in exported JSON.",
-    "Supports filtering, text search, copy, JSON export and local deletion.",
-    "All diagnostic data remains in the local browser until exported by the user."
+    "Runtime modules read the release version from the HTML app-version metadata.",
+    "Service endpoints are provided through the central ProjectEvercadeConfig object.",
+    "GitHub Pages is deployed only through the canonical Actions artifact workflow."
   ],
-  "status": "deployment-pending-live-verification"
+  "status": "ready-for-deployment"
 }
