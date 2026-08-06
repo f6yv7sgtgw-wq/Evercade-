@@ -1,37 +1,30 @@
-name: Build, publish and verify Project Evercade
+name: Prepare Project Evercade Pages on main
 
 on:
   push:
     branches: [main]
-    paths:
-      - 'VERSION.json'
-      - 'index.html'
-      - 'styles.css'
-      - 'app.js'
-      - 'kleinanzeigen-client.js'
-      - 'eventlog.js'
-      - 'release.js'
-      - 'manifest.json'
-      - 'scripts/**'
-      - '.github/workflows/publish-gh-pages.yml'
+    paths-ignore:
+      - 'release.json'
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: project-evercade-pages
+  group: project-evercade-main-pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  prepare:
+    if: ${{ !contains(github.event.head_commit.message || '', '[pages-built]') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 8
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
 
       - name: Validate source
         run: |
@@ -41,53 +34,31 @@ jobs:
           node --check eventlog.js
           node --check release.js
           node --check scripts/build-release.mjs
-          node --check scripts/verify-live-release.mjs
           node -e "const v=require('./VERSION.json'); if(!v.version || v.display_version!==v.version) throw new Error('VERSION.json is inconsistent')"
           grep -q "generic-parser-module-v1" kleinanzeigen-client.js
           grep -q "EvercadeEventLog" eventlog.js
           grep -q "Eventlog öffnen" release.js
 
-      - name: Build release from VERSION.json
+      - name: Build deployable main root
         run: |
           set -euo pipefail
-          rm -rf public
-          mkdir public
-          rsync -a \
-            --exclude='.git/' \
-            --exclude='.github/' \
-            --exclude='public/' \
-            --exclude='scripts/' \
-            ./ public/
-          node scripts/build-release.mjs public
-          touch public/.nojekyll
+          node scripts/build-release.mjs .
+          touch .nojekyll
+          version=$(node -p "require('./VERSION.json').version")
+          grep -q "Version ${version}" index.html
+          grep -q "eventlog.js?v=${version}" index.html
+          grep -q "release.js?v=${version}" index.html
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./public
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-
-  verify:
-    runs-on: ubuntu-latest
-    timeout-minutes: 6
-    needs: deploy
-    steps:
-      - name: Checkout verification scripts
-        uses: actions/checkout@v4
-
-      - name: Verify public GitHub Pages release
-        run: node scripts/verify-live-release.mjs
+      - name: Commit deployable Pages files to main
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html release.json .nojekyll
+          if git diff --cached --quiet; then
+            echo "Main already contains the deployable release."
+            exit 0
+          fi
+          version=$(node -p "require('./VERSION.json').version")
+          git commit -m "[pages-built] Publish Project Evercade ${version} from main"
+          git push origin HEAD:main
