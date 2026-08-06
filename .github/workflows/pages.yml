@@ -1,4 +1,4 @@
-name: Deploy Project Evercade 0.9.1 to GitHub Pages
+name: Deploy Project Evercade 0.9.2 to GitHub Pages
 
 on:
   push:
@@ -10,6 +10,7 @@ on:
       - app.js
       - kleinanzeigen-client.js
       - manifest.json
+      - VERSION.json
       - integrations/**
       - docs/**
       - .github/workflows/pages.yml
@@ -44,16 +45,21 @@ jobs:
           node --check app.js
           node --check kleinanzeigen-client.js
           python -m json.tool manifest.json >/dev/null
-          grep -q 'Version 0.9.1' index.html
+          python -m json.tool VERSION.json >/dev/null
+          grep -q "const VERSION = '0.9.2'" kleinanzeigen-client.js
+          grep -q 'https://genericparser.f6yv7sgtgw.workers.dev' kleinanzeigen-client.js
           grep -q 'generic-parser-module-v1' kleinanzeigen-client.js
           grep -q '/api/module/v1/search' kleinanzeigen-client.js
+          grep -q '"version": "0.9.2"' manifest.json
+          grep -q '"version": "0.9.2"' VERSION.json
 
       - name: Build static artifact
         shell: bash
         run: |
           set -euo pipefail
+          rm -rf _site
           mkdir -p _site
-          cp index.html styles.css app.js kleinanzeigen-client.js manifest.json _site/
+          cp index.html styles.css app.js kleinanzeigen-client.js manifest.json VERSION.json _site/
           if [ -d integrations ]; then cp -R integrations _site/; fi
           if [ -d docs ]; then cp -R docs _site/; fi
           touch _site/.nojekyll
