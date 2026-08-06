@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '0.9.4.1';
+  const VERSION = '0.9.4.2';
   const SOURCE = 'Kleinanzeigen';
   const STATUS_KEY = 'evercade-kleinanzeigen-094-source-status';
   let repairing = false;
@@ -97,8 +97,12 @@
     }, 1000);
 
     setTimeout(() => {
-      const runner = window.Evercade094?.runDailyScan;
-      if (typeof runner === 'function') runner({ force: true, silent: false });
+      const runner = window.EvercadeKleinanzeigen094?.runDailyScan;
+      if (typeof runner === 'function') {
+        runner({ force: true, silent: false });
+      } else {
+        console.error('Evercade 0.9.4.2: GenericParser runner is unavailable');
+      }
     }, 1500);
   }
 
@@ -122,7 +126,7 @@
     }, 5000);
   }
 
-  window.Evercade0941 = { version: VERSION, ensureState, repairUi };
+  window.Evercade0942 = { version: VERSION, ensureState, repairUi, repairAfterServerAction };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();
