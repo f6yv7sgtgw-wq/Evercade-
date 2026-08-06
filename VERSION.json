@@ -6,7 +6,7 @@
   "release_date": "2026-08-06",
   "repository": "f6yv7sgtgw-wq/Evercade-",
   "pages_url": "https://f6yv7sgtgw-wq.github.io/Evercade-/",
-  "base_version": "0.9.5.1",
+  "base_version": "0.9.5",
   "generic_parser": {
     "version": "0.45.0",
     "contract": "generic-parser-module-v1",
@@ -22,14 +22,15 @@
   },
   "price_search": {
     "existing_sources_retained": true,
-    "automatic_sources": 10,
+    "automatic_sources": 9,
     "direct_search_sources": 12,
-    "total_sources": 22
+    "total_sources": 21
   },
   "architecture": {
     "single_pages_deployment": true,
+    "deployment_source": "github-actions-pages-artifact",
     "loaded_module": "kleinanzeigen-client.js",
-    "release_layer": "release-0.9.5.2.js",
+    "release_layer": "release.js",
     "eventlog_module": "eventlog.js",
     "server_snapshot_merge": true,
     "background_scan_hook": true,
@@ -39,11 +40,11 @@
     "eventlog_max_entries": 1000
   },
   "features": [
-    "Dedicated Eventlog page available through the main navigation.",
+    "Dedicated Eventlog page available through the main navigation and data menu.",
     "Logs user actions, fetch requests, response status, duration, browser errors, unhandled promise rejections, network changes and visibility changes.",
-    "Includes existing Kleinanzeigen diagnostic events in exported JSON.",
+    "Includes Kleinanzeigen diagnostic events in exported JSON.",
     "Supports filtering, text search, copy, JSON export and local deletion.",
     "All diagnostic data remains in the local browser until exported by the user."
   ],
-  "status": "final-deployment-retriggered"
+  "status": "deployment-pending-live-verification"
 }
