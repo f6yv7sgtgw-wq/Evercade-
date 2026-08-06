@@ -1,58 +1,55 @@
-name: Prepare Project Evercade 0.9.5.2
+name: Verify Project Evercade Pages
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
+      - 'index.html'
+      - 'manifest.json'
+      - 'VERSION.json'
+      - 'app.js'
+      - 'kleinanzeigen-client.js'
+      - 'eventlog.js'
+      - 'release.js'
+      - 'release.json'
       - '.github/workflows/publish-gh-pages.yml'
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: verify-project-evercade-pages
+  cancel-in-progress: true
 
 jobs:
-  prepare-release:
+  verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 2
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
 
-      - name: Build final website in repository root
+      - name: Verify published files
         run: |
           set -euo pipefail
           node --check app.js
           node --check kleinanzeigen-client.js
           node --check eventlog.js
           node --check release.js
-          node --check scripts/build-release.mjs
-          node scripts/build-release.mjs .
-          touch .nojekyll
-
-      - name: Verify final 0.9.5.2 files
-        run: |
-          set -euo pipefail
           version=$(node -p "require('./VERSION.json').version")
           test "$version" = "0.9.5.2"
+          grep -q 'meta name="app-version" content="0.9.5.2"' index.html
           grep -q 'Version 0.9.5.2' index.html
+          grep -q 'manifest.json?v=0.9.5.2' index.html
+          grep -q 'styles.css?v=0.9.5.2' index.html
           grep -q 'app.js?v=0.9.5.2' index.html
           grep -q 'kleinanzeigen-client.js?v=0.9.5.2' index.html
           grep -q 'eventlog.js?v=0.9.5.2' index.html
           grep -q 'release.js?v=0.9.5.2' index.html
+          grep -q '"version": "0.9.5.2"' manifest.json
           grep -q '"version": "0.9.5.2"' release.json
-
-      - name: Commit final website to main
-        run: |
-          set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html release.json .nojekyll
-          if git diff --cached --quiet; then
-            echo 'Project Evercade 0.9.5.2 is already prepared on main.'
-            exit 0
-          fi
-          git commit -m 'Publish final Project Evercade 0.9.5.2 website'
-          git push origin HEAD:main
+          grep -q 'generic-parser-module-v1' kleinanzeigen-client.js
+          grep -q 'EvercadeEventLog' eventlog.js
+          grep -q 'Eventlog öffnen' release.js
+          test -f .nojekyll
