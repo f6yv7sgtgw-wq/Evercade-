@@ -63,19 +63,25 @@ jobs:
           if [ -d integrations ]; then cp -R integrations _site/; fi
           if [ -d docs ]; then cp -R docs _site/; fi
 
-          sed -i 's/0\.9\.1/0.9.4.2/g; s/0\.9\.2 Build 2/0.9.4.2/g; s/0\.9\.2/0.9.4.2/g; s/0\.9\.3/0.9.4.2/g; s/0\.9\.4\.1\.1/0.9.4.2/g; s/0\.9\.4\.1/0.9.4.2/g; s/0\.9\.4/0.9.4.2/g' _site/index.html
-          sed -i '/kleinanzeigen-client\.js/d' _site/index.html
-          sed -i '/kleinanzeigen-build2\.js/d' _site/index.html
-          sed -i '/app-0\.9\.4\.js/d' _site/index.html
-          sed -i '/app-0\.9\.4\.1\.js/d' _site/index.html
-          sed -i 's#</body>#  <script src="app-0.9.4.js?v=0.9.4.2"></script>\n  <script src="app-0.9.4.1.js?v=0.9.4.2"></script>\n</body>#' _site/index.html
-          sed -i 's/app.js?v=[^"]*/app.js?v=0.9.4.2/g' _site/index.html
-          sed -i 's/styles.css?v=[^"]*/styles.css?v=0.9.4.2/g' _site/index.html
-          sed -i 's/manifest.json?v=[^"]*/manifest.json?v=0.9.4.2/g' _site/index.html
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          path = Path('_site/index.html')
+          text = path.read_text(encoding='utf-8')
+          text = re.sub(r'Version 0\.9(?:\.\d+)*(?: Build 2)?', 'Version 0.9.4.2', text)
+          text = re.sub(r'([?&]v=)0\.9(?:\.\d+)*(?:-[A-Za-z0-9.-]+)?', r'\g<1>0.9.4.2', text)
+          text = re.sub(r'^.*(?:kleinanzeigen-client|kleinanzeigen-build2|app-0\.9\.4(?:\.1)?)\.js.*\n?', '', text, flags=re.MULTILINE)
+          scripts = '  <script src="app-0.9.4.js?v=0.9.4.2"></script>\n  <script src="app-0.9.4.1.js?v=0.9.4.2"></script>\n'
+          text = text.replace('</body>', scripts + '</body>')
+          path.write_text(text, encoding='utf-8')
+          PY
 
           grep -q 'Version 0.9.4.2' _site/index.html
+          grep -q 'app.js?v=0.9.4.2' _site/index.html
           grep -q 'app-0.9.4.js?v=0.9.4.2' _site/index.html
           grep -q 'app-0.9.4.1.js?v=0.9.4.2' _site/index.html
+          ! grep -q 'Version 0.9.3' _site/index.html
+          ! grep -q '0.9.4.2.2' _site/index.html
           touch _site/.nojekyll
 
       - name: Upload Pages artifact
