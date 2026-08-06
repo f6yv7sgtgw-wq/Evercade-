@@ -1,0 +1,59 @@
+name: Publish Evercade 0.9.4.1 to gh-pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - index.html
+      - styles.css
+      - app.js
+      - app-0.9.4.js
+      - app-0.9.4.1.js
+      - manifest.json
+      - VERSION.json
+      - .github/workflows/publish-gh-pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      - name: Validate source
+        run: |
+          set -euo pipefail
+          node --check app.js
+          node --check app-0.9.4.js
+          node --check app-0.9.4.1.js
+          grep -q "const VERSION = '0.9.4.1'" app-0.9.4.1.js
+          grep -q "SOURCE = 'Kleinanzeigen'" app-0.9.4.1.js
+          grep -q 'state.background.sourceStatus' app-0.9.4.1.js
+          grep -q '23 Bezugsquellen' app-0.9.4.1.js
+          grep -q '11 werden automatisch' app-0.9.4.1.js
+
+      - name: Build branch content
+        run: |
+          set -euo pipefail
+          rm -rf public
+          mkdir public
+          cp index.html styles.css app.js app-0.9.4.js app-0.9.4.1.js manifest.json VERSION.json public/
+          sed -i 's/0\.9\.1/0.9.4.1/g; s/0\.9\.2 Build 2/0.9.4.1/g; s/0\.9\.2/0.9.4.1/g; s/0\.9\.3/0.9.4.1/g; s/0\.9\.4/0.9.4.1/g' public/index.html
+          sed -i '/kleinanzeigen-client\.js/d; /kleinanzeigen-build2\.js/d; /app-0\.9\.4\.js/d; /app-0\.9\.4\.1\.js/d' public/index.html
+          sed -i 's#</body>#  <script src="app-0.9.4.js?v=0.9.4.1"></script>\n  <script src="app-0.9.4.1.js?v=0.9.4.1"></script>\n</body>#' public/index.html
+          sed -i 's/app.js?v=[^"]*/app.js?v=0.9.4.1/g; s/styles.css?v=[^"]*/styles.css?v=0.9.4.1/g; s/manifest.json?v=[^"]*/manifest.json?v=0.9.4.1/g' public/index.html
+          touch public/.nojekyll
+          grep -q 'Version 0.9.4.1' public/index.html
+          grep -q 'app-0.9.4.1.js?v=0.9.4.1' public/index.html
+
+      - name: Publish gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          publish_branch: gh-pages
+          force_orphan: true
