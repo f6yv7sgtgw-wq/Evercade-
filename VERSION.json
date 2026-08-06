@@ -1,7 +1,7 @@
 {
   "product": "Project Evercade",
-  "version": "0.9.3",
-  "display_version": "0.9.3",
+  "version": "0.9.4",
+  "display_version": "0.9.4",
   "channel": "test",
   "release_date": "2026-08-06",
   "repository": "f6yv7sgtgw-wq/Evercade-",
@@ -13,9 +13,10 @@
     "authentication_required": false,
     "source": "kleinanzeigen",
     "automatic": true,
-    "fully_integrated": true,
     "shared_source_status": true,
     "shared_monitor_observations": true,
+    "server_snapshot_merge": true,
+    "background_scan_hook": true,
     "interactive_max_packets": 4,
     "packet_pause_seconds": 5,
     "daily_scan": true
@@ -29,11 +30,12 @@
   },
   "consistency": {
     "visible_source_list_includes_kleinanzeigen": true,
-    "source_status_survives_render": true,
-    "source_status_persisted": true,
+    "source_count_derived_from_state": true,
+    "server_refresh_preserves_kleinanzeigen": true,
     "worker_errors_visible": true,
     "results_merged_into_monitor": true,
-    "source_counts_normalized": true
+    "legacy_parallel_scripts_removed_from_pages": true
   },
-  "status": "published-test-pending-user-verification"
+  "limitation": "The existing project-evercade-deal-api backend is not stored in an accessible GitHub repository. GenericParser therefore runs from the Evercade application and is merged after every server snapshot; unattended execution still depends on the existing external automation service.",
+  "status": "published-test-pending-pages-and-user-verification"
 }
